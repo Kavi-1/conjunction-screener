@@ -4,8 +4,8 @@ export default function HomePage() {
   return (
     <main>
       <header className="site-header">
-        <a className="wordmark" href="#top" aria-label="Who’s Up There home">
-          Who’s Up There<span aria-hidden="true">°</span>
+        <a className="wordmark" href="#top" aria-label="Miss Distance home">
+          Miss Distance<span aria-hidden="true">°</span>
         </a>
         <p className="mode-label">
           <span aria-hidden="true" /> Offline fixture

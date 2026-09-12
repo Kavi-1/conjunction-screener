@@ -4,8 +4,8 @@ import type { ReactNode } from "react";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Who’s Up There",
-  description: "An orbital perspective on the spacecraft circling Earth.",
+  title: "Miss Distance",
+  description: "An orbital conjunction and close-approach explorer.",
 };
 
 export default function RootLayout({ children }: Readonly<{ children: ReactNode }>) {

@@ -58,6 +58,12 @@ export interface SatellitePosition {
   elementAgeHours: number;
 }
 
+export interface PropagationStateEci {
+  positionEciKm: { x: number; y: number; z: number };
+  velocityEciKmS: { x: number; y: number; z: number };
+  orbitalPeriodMinutes: number;
+}
+
 export function tleEpochUtc(line1: string): Date {
   const shortYear = Number.parseInt(line1.slice(18, 20), 10);
   const dayOfYear = Number.parseFloat(line1.slice(20, 32));
@@ -85,21 +91,14 @@ export function propagateSatelliteAtUtc(
   record: SatelliteRecord,
   atUtc: Date,
 ): SatellitePosition | null {
-  const satrec =
-    "line1" in record
-      ? twoline2satrec(record.line1, record.line2)
-      : json2satrec(toOmmJson(record));
-  const propagated = propagate(satrec, atUtc);
+  const state = propagateStateEciAtUtc(record, atUtc);
+  if (!state) return null;
 
-  if (!propagated) {
-    return null;
-  }
-
-  const geodetic = eciToGeodetic(propagated.position, gstime(atUtc));
+  const geodetic = eciToGeodetic(state.positionEciKm, gstime(atUtc));
   const velocityKmS = Math.hypot(
-    propagated.velocity.x,
-    propagated.velocity.y,
-    propagated.velocity.z,
+    state.velocityEciKmS.x,
+    state.velocityEciKmS.y,
+    state.velocityEciKmS.z,
   );
   const altitudeKm = Math.max(0, geodetic.height);
   const epochUtc = elementEpochUtc(record);
@@ -110,16 +109,48 @@ export function propagateSatelliteAtUtc(
     0.025 + Math.log10(1 + altitudeKm / 300) * 0.11;
 
   return {
-    ...record,
+    name: record.name,
+    catalogNumber: record.catalogNumber,
+    internationalDesignator: record.internationalDesignator,
+    regime: record.regime,
     latDeg: degreesLat(geodetic.latitude),
     lngDeg: degreesLong(geodetic.longitude),
     altitudeKm,
     displayAltitudeEarthRadii,
     velocityKmS,
-    orbitalPeriodMinutes: TWO_PI / satrec.no,
+    orbitalPeriodMinutes: state.orbitalPeriodMinutes,
     elementEpochUtc: epochUtc,
     elementAgeHours:
       (atUtc.getTime() - epochUtc.getTime()) / 3_600_000,
+  };
+}
+
+export function propagateStateEciAtUtc(
+  record: SatelliteRecord,
+  atUtc: Date,
+): PropagationStateEci | null {
+  const satrec =
+    "line1" in record
+      ? twoline2satrec(record.line1, record.line2)
+      : json2satrec(toOmmJson(record));
+  const propagated = propagate(satrec, atUtc);
+
+  if (!propagated) {
+    return null;
+  }
+
+  return {
+    positionEciKm: {
+      x: propagated.position.x,
+      y: propagated.position.y,
+      z: propagated.position.z,
+    },
+    velocityEciKmS: {
+      x: propagated.velocity.x,
+      y: propagated.velocity.y,
+      z: propagated.velocity.z,
+    },
+    orbitalPeriodMinutes: TWO_PI / satrec.no,
   };
 }
 

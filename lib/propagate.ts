@@ -64,6 +64,8 @@ export interface PropagationStateEci {
   orbitalPeriodMinutes: number;
 }
 
+export type SatellitePropagator = (atUtc: Date) => PropagationStateEci | null;
+
 export function tleEpochUtc(line1: string): Date {
   const shortYear = Number.parseInt(line1.slice(18, 20), 10);
   const dayOfYear = Number.parseFloat(line1.slice(20, 32));
@@ -133,6 +135,25 @@ export function propagateStateEciAtUtc(
     "line1" in record
       ? twoline2satrec(record.line1, record.line2)
       : json2satrec(toOmmJson(record));
+
+  return propagateSatrecAtUtc(satrec, atUtc);
+}
+
+export function createSatellitePropagator(
+  record: SatelliteRecord,
+): SatellitePropagator {
+  const satrec =
+    "line1" in record
+      ? twoline2satrec(record.line1, record.line2)
+      : json2satrec(toOmmJson(record));
+
+  return (atUtc) => propagateSatrecAtUtc(satrec, atUtc);
+}
+
+function propagateSatrecAtUtc(
+  satrec: ReturnType<typeof twoline2satrec>,
+  atUtc: Date,
+): PropagationStateEci | null {
   const propagated = propagate(satrec, atUtc);
 
   if (!propagated) {

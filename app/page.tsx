@@ -1,3 +1,4 @@
+import { ElementReadout } from "@/components/element-readout";
 import { OrbitalGlobe } from "@/components/orbital-globe";
 
 export default function HomePage() {
@@ -7,19 +8,19 @@ export default function HomePage() {
         <a className="wordmark" href="#top" aria-label="Miss Distance home">
           Miss Distance<span aria-hidden="true">°</span>
         </a>
-        <p className="mode-label">
-          <span aria-hidden="true" /> Offline fixture
+        <p className="feed-state">
+          <span aria-hidden="true" /> Fixture element sets, not a live feed
         </p>
       </header>
 
       <section className="hero" id="top" aria-labelledby="page-title">
         <div className="intro">
-          <p className="kicker">A small view of a crowded sky</p>
           <h1 id="page-title">Earth is never alone.</h1>
           <p className="lede">
-            Eight catalogued objects, propagated from fixed two-line elements and
-            placed around the planet in your browser.
+            Eight catalogued objects, propagated in your browser with SGP4 from
+            published two-line element sets and redrawn every second against UTC.
           </p>
+          <ElementReadout />
         </div>
 
         <OrbitalGlobe />
@@ -27,10 +28,21 @@ export default function HomePage() {
 
       <footer className="site-footer">
         <p>
-          Positions use SGP4 propagation. Altitude is compressed visually so distant
-          orbits remain in frame.
+          Positions are computed in the browser, not precomputed on a server.
+          Altitude is compressed on a logarithmic scale so every orbit regime stays
+          in frame.
         </p>
-        <p>Educational display — not for operational conjunction assessment.</p>
+        <p>
+          Element sets from{" "}
+          <a href="https://celestrak.org" rel="noreferrer noopener" target="_blank">
+            Celestrak
+          </a>
+          , a nonprofit that mirrors the public satellite catalog released by the US
+          Space Force.
+        </p>
+        <p>
+          Educational demonstration. Not for operational conjunction assessment.
+        </p>
       </footer>
     </main>
   );

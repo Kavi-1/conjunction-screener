@@ -5,6 +5,11 @@ import { useEffect, useMemo, useRef, useState } from "react";
 
 import fixture from "@/fixtures/satellites.json";
 import {
+  formatElementAgeHours,
+  formatUtcTimestamp,
+  isStaleElementAge,
+} from "@/lib/elements";
+import {
   propagateTleAtUtc,
   type OrbitRegime,
   type SatellitePosition,
@@ -31,7 +36,16 @@ function asSatellitePosition(point: object): SatellitePosition {
 
 function tooltipMarkup(point: object): string {
   const satellite = asSatellitePosition(point);
-  return `<div class="globe-tooltip"><strong>${satellite.name}</strong><span>${satellite.regime} · ${Math.round(satellite.altitudeKm).toLocaleString()} km</span></div>`;
+  const ageClass = isStaleElementAge(satellite.elementAgeHours) ? ' class="stale"' : "";
+
+  return [
+    '<div class="globe-tooltip">',
+    `<strong>${satellite.name}</strong>`,
+    `<span>NORAD ${satellite.catalogNumber}, ${satellite.internationalDesignator}</span>`,
+    `<span>${satellite.regime}, ${Math.round(satellite.altitudeKm).toLocaleString("en-US")} km, ${satellite.velocityKmS.toFixed(2)} km/s</span>`,
+    `<span${ageClass}>Elements ${formatElementAgeHours(satellite.elementAgeHours)} old</span>`,
+    "</div>",
+  ].join("");
 }
 
 export function OrbitalGlobe() {
@@ -141,28 +155,28 @@ export function OrbitalGlobe() {
           <p className="globe-status">Propagating orbits…</p>
         ) : null}
         {renderError ? <p className="globe-status globe-error">{renderError}</p> : null}
-        <p className="utc-clock" aria-live="off">
-          <span>Position epoch</span>
-          {observedAtUtc
-            ? observedAtUtc.toISOString().replace("T", " · ").slice(0, 22) + " UTC"
-            : "—"}
+        <p className="epoch-clock measure" aria-live="off">
+          <span>Propagated for</span>
+          {observedAtUtc ? formatUtcTimestamp(observedAtUtc) : "—"}
         </p>
       </div>
 
       <aside className="orbit-key" aria-label="Orbit regime legend">
-        <p>{positions.length.toString().padStart(2, "0")} objects in view</p>
+        <p>
+          <span className="measure">{positions.length}</span> objects in view
+        </p>
         <ul>
           {(Object.keys(REGIME_COLORS) as OrbitRegime[]).map((regime) => (
             <li key={regime}>
               <span style={{ backgroundColor: REGIME_COLORS[regime] }} />
               <b>{regime}</b>
-              <small>
+              <small className="measure">
                 {positions.filter((position) => position.regime === regime).length}
               </small>
             </li>
           ))}
         </ul>
-        <p className="drag-note">Drag to turn · scroll to inspect</p>
+        <p className="drag-note">Drag to turn. Scroll to move closer.</p>
       </aside>
     </div>
   );

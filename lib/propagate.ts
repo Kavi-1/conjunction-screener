@@ -3,8 +3,10 @@ import {
   degreesLong,
   eciToGeodetic,
   gstime,
+  json2satrec,
   propagate,
   twoline2satrec,
+  type OMMJsonObject,
 } from "satellite.js";
 
 const EARTH_RADIUS_KM = 6_371;
@@ -20,6 +22,26 @@ export interface TleRecord {
   line1: string;
   line2: string;
 }
+
+export interface OmmRecord {
+  name: string;
+  catalogNumber: string;
+  internationalDesignator: string;
+  regime: OrbitRegime;
+  epochUtc: string;
+  meanMotionRevDay: number;
+  eccentricity: number;
+  inclinationDeg: number;
+  rightAscensionAscendingNodeDeg: number;
+  argumentOfPericenterDeg: number;
+  meanAnomalyDeg: number;
+  elementSetNumber: number;
+  bstar: number;
+  meanMotionDot: number;
+  meanMotionDdot: number;
+}
+
+export type SatelliteRecord = TleRecord | OmmRecord;
 
 export interface SatellitePosition {
   name: string;
@@ -52,7 +74,21 @@ export function propagateTleAtUtc(
   record: TleRecord,
   atUtc: Date,
 ): SatellitePosition | null {
-  const satrec = twoline2satrec(record.line1, record.line2);
+  return propagateSatelliteAtUtc(record, atUtc);
+}
+
+export function elementEpochUtc(record: SatelliteRecord): Date {
+  return "line1" in record ? tleEpochUtc(record.line1) : new Date(record.epochUtc);
+}
+
+export function propagateSatelliteAtUtc(
+  record: SatelliteRecord,
+  atUtc: Date,
+): SatellitePosition | null {
+  const satrec =
+    "line1" in record
+      ? twoline2satrec(record.line1, record.line2)
+      : json2satrec(toOmmJson(record));
   const propagated = propagate(satrec, atUtc);
 
   if (!propagated) {
@@ -66,7 +102,7 @@ export function propagateTleAtUtc(
     propagated.velocity.z,
   );
   const altitudeKm = Math.max(0, geodetic.height);
-  const elementEpochUtc = tleEpochUtc(record.line1);
+  const epochUtc = elementEpochUtc(record);
 
   // True orbital altitude would put GEO points far outside a useful globe view.
   // A logarithmic display scale preserves ordering while keeping every regime visible.
@@ -81,9 +117,29 @@ export function propagateTleAtUtc(
     displayAltitudeEarthRadii,
     velocityKmS,
     orbitalPeriodMinutes: TWO_PI / satrec.no,
-    elementEpochUtc,
+    elementEpochUtc: epochUtc,
     elementAgeHours:
-      (atUtc.getTime() - elementEpochUtc.getTime()) / 3_600_000,
+      (atUtc.getTime() - epochUtc.getTime()) / 3_600_000,
+  };
+}
+
+function toOmmJson(record: OmmRecord): OMMJsonObject {
+  return {
+    OBJECT_NAME: record.name,
+    OBJECT_ID: record.internationalDesignator,
+    EPOCH: record.epochUtc,
+    MEAN_MOTION: record.meanMotionRevDay,
+    ECCENTRICITY: record.eccentricity,
+    INCLINATION: record.inclinationDeg,
+    RA_OF_ASC_NODE: record.rightAscensionAscendingNodeDeg,
+    ARG_OF_PERICENTER: record.argumentOfPericenterDeg,
+    MEAN_ANOMALY: record.meanAnomalyDeg,
+    EPHEMERIS_TYPE: 0,
+    NORAD_CAT_ID: record.catalogNumber,
+    ELEMENT_SET_NO: record.elementSetNumber,
+    BSTAR: record.bstar,
+    MEAN_MOTION_DOT: record.meanMotionDot,
+    MEAN_MOTION_DDOT: record.meanMotionDdot,
   };
 }
 

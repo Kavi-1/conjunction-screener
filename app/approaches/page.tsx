@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 
-import { SatelliteScreen } from "@/components/satellite-screen";
+import { ApproachesTabs } from "@/components/approaches-tabs";
 
 export const metadata: Metadata = {
   title: "Close approaches — Miss Distance",
@@ -28,11 +28,15 @@ export default function ApproachesPage() {
           survivors. Results depend on public element sets that age quickly.
         </p>
       </section>
-      <SatelliteScreen />
+      <ApproachesTabs />
       <footer className="site-footer">
         <p>
           Orbital elements are provided by Celestrak, a nonprofit that mirrors the
           public catalog released by the US Space Force.
+        </p>
+        <p>
+          Asteroid approaches are published by NASA JPL CNEOS through the Small-Body
+          Database.
         </p>
         <p>Educational demonstration. Not for operational conjunction assessment.</p>
       </footer>

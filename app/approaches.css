@@ -25,6 +25,31 @@
   padding-bottom: 5rem;
 }
 
+.approach-tabs {
+  border-bottom: 1px solid var(--line-strong);
+  display: flex;
+  gap: 1.5rem;
+  margin: 0 auto 2rem;
+  max-width: 1440px;
+  padding-inline: 5vw;
+}
+
+.approach-tabs button {
+  background: transparent;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  color: var(--muted);
+  cursor: pointer;
+  font: 500 0.9rem/1 var(--prose);
+  margin-bottom: -1px;
+  padding: 0.9rem 0;
+}
+
+.approach-tabs button[aria-selected="true"] {
+  border-bottom-color: var(--signal);
+  color: var(--paper);
+}
+
 .screen-controls {
   align-items: end;
   border-bottom: 1px solid var(--line-strong);
@@ -196,9 +221,81 @@
 }
 
 .range-figure {
+  margin: 1.5rem 0 0;
+}
+
+.approach-detail {
   border-top: 1px solid var(--line-strong);
-  margin: 3rem 0 0;
+  margin-top: 3rem;
   padding-top: 1rem;
+}
+
+.approach-detail > header h3 {
+  font-size: 1rem;
+  font-weight: 500;
+  margin: 0;
+}
+
+.approach-detail > header p {
+  color: var(--muted);
+  font-size: 0.76rem;
+  margin: 0.3rem 0 0;
+}
+
+.asteroid-heading {
+  align-items: end;
+  border-bottom: 1px solid var(--line-strong);
+  border-top: 1px solid var(--line-strong);
+  display: flex;
+  justify-content: space-between;
+  padding: 1.3rem 0;
+}
+
+.asteroid-heading h2 {
+  font-size: 1.25rem;
+  font-weight: 500;
+  margin: 0;
+}
+
+.asteroid-heading p {
+  color: var(--muted);
+  font-size: 0.82rem;
+  line-height: 1.5;
+  margin: 0.35rem 0 0;
+  max-width: 40rem;
+}
+
+.asteroid-heading > span {
+  color: var(--muted);
+  flex: none;
+  font-size: 0.72rem;
+  margin-left: 2rem;
+}
+
+.asteroid-detail-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  margin: 1.2rem 0 0;
+}
+
+.asteroid-detail-grid > div {
+  border-left: 1px solid var(--line);
+  padding: 0 1rem;
+}
+
+.asteroid-detail-grid > div:first-child {
+  border-left: 0;
+  padding-left: 0;
+}
+
+.asteroid-detail-grid dt {
+  color: var(--muted);
+  font-size: 0.7rem;
+}
+
+.asteroid-detail-grid dd {
+  font-size: 0.72rem;
+  margin: 0.3rem 0 0;
 }
 
 .range-figure figcaption {
@@ -279,6 +376,26 @@
   }
 
   .gate-readout > div:nth-child(odd) {
+    border-left: 0;
+    padding-left: 0;
+  }
+
+  .asteroid-heading {
+    align-items: start;
+    display: grid;
+    gap: 0.8rem;
+  }
+
+  .asteroid-heading > span {
+    margin-left: 0;
+  }
+
+  .asteroid-detail-grid {
+    grid-template-columns: repeat(2, 1fr);
+    row-gap: 1.2rem;
+  }
+
+  .asteroid-detail-grid > div:nth-child(odd) {
     border-left: 0;
     padding-left: 0;
   }

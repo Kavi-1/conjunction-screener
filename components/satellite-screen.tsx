@@ -2,11 +2,13 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 
-import { ApproachTable } from "@/components/approach-table";
+import { ApproachDetail } from "@/components/approach-detail";
+import { ApproachTable, type ApproachTableRow } from "@/components/approach-table";
 import { RangePlot } from "@/components/range-plot";
 import type { SatelliteCatalogPayload } from "@/lib/celestrak";
 import type { ScreenWorkerRequest, ScreenWorkerResponse } from "@/lib/screen-messages";
 import type { ConjunctionResult, ScreeningProgress, ScreeningReport } from "@/lib/screen";
+import { formatElementAgeHours, formatUtcTimestamp, isStaleElementAge } from "@/lib/elements";
 
 const STAGE_LABELS: Record<ScreeningProgress["stage"], string> = {
   prepare: "Preparing orbital geometry",
@@ -103,6 +105,19 @@ export function SatelliteScreen() {
   const progressPercent = progress
     ? Math.round((progress.completed / Math.max(progress.total, 1)) * 100)
     : 0;
+  const tableRows: ApproachTableRow[] = (report?.results ?? []).map((result) => {
+    const stale = isStaleElementAge(result.oldestElementAgeHours);
+    return {
+      id: result.id,
+      primaryLabel: result.first.name,
+      secondaryLabel: `${result.first.catalogNumber} / ${result.second.name} ${result.second.catalogNumber}`,
+      tcaLabel: formatUtcTimestamp(new Date(result.tcaUtc)),
+      missDistanceLabel: `${result.missDistanceKm.toFixed(2)} km`,
+      relativeVelocityLabel: `${result.relativeVelocityKmS.toFixed(2)} km/s`,
+      auxiliaryLabel: `${formatElementAgeHours(result.oldestElementAgeHours)}${stale ? " · stale" : ""}`,
+      auxiliaryAlert: stale,
+    };
+  });
 
   return (
     <section className="screen-workspace" aria-labelledby="satellite-tab">
@@ -151,11 +166,24 @@ export function SatelliteScreen() {
             <div><dt>Worker time</dt><dd className="measure">{(report.stats.elapsedMs / 1_000).toFixed(1)} s</dd></div>
           </dl>
           {report.results.length > 0 ? (
-            <ApproachTable results={report.results} selectedId={selected?.id ?? null} onSelect={setSelected} />
+            <ApproachTable
+              rows={tableRows}
+              selectedId={selected?.id ?? null}
+              tcaHeading="Closest approach (UTC)"
+              auxiliaryHeading="Oldest elements"
+              onSelect={(row) => setSelected(report.results.find((result) => result.id === row.id) ?? null)}
+            />
           ) : (
             <p className="empty-results">No approaches crossed this threshold in the screened sample.</p>
           )}
-          {selected && <RangePlot result={selected} />}
+          {selected && (
+            <ApproachDetail
+              title="Pair geometry"
+              description="Computed in this browser from public orbital elements."
+            >
+              <RangePlot result={selected} />
+            </ApproachDetail>
+          )}
         </>
       )}
     </section>

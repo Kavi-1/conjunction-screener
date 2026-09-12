@@ -18,6 +18,7 @@ export default function ApproachesPage() {
         <nav aria-label="Primary navigation">
           <Link href="/">Globe</Link>
           <Link href="/approaches" aria-current="page">Close approaches</Link>
+          <Link href="/replay">2009 replay</Link>
         </nav>
       </header>
       <section className="approaches-intro">

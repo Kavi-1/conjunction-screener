@@ -15,6 +15,7 @@ export default function HomePage() {
           <nav aria-label="Primary navigation">
             <Link href="/" aria-current="page">Globe</Link>
             <Link href="/approaches">Close approaches</Link>
+            <Link href="/replay">2009 replay</Link>
           </nav>
           <CatalogStatus />
         </header>

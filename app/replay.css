@@ -1,0 +1,197 @@
+.replay-intro,
+.replay-workspace {
+  margin-inline: auto;
+  max-width: 1440px;
+  padding-inline: 5vw;
+}
+
+.replay-intro {
+  padding-bottom: 1rem;
+  padding-top: clamp(3rem, 7vw, 6rem);
+}
+
+.replay-intro h1 {
+  max-width: 11ch;
+}
+
+.replay-intro > p {
+  color: var(--muted);
+  line-height: 1.65;
+  margin: 1.5rem 0 0;
+  max-width: 38rem;
+}
+
+.replay-workspace {
+  display: grid;
+  grid-template-columns: minmax(0, 1.5fr) minmax(19rem, 0.75fr);
+  padding-bottom: 5rem;
+}
+
+.replay-globe-frame {
+  aspect-ratio: 1;
+  max-width: 850px;
+  position: relative;
+  width: 100%;
+}
+
+.replay-globe-frame::after {
+  border: 1px solid rgba(232, 239, 235, 0.09);
+  border-radius: 50%;
+  content: "";
+  inset: 7%;
+  pointer-events: none;
+  position: absolute;
+}
+
+.replay-clock {
+  bottom: 8%;
+  font-size: 0.74rem;
+  left: 7%;
+  margin: 0;
+  position: absolute;
+  z-index: 2;
+}
+
+.replay-key {
+  display: grid;
+  font-size: 0.76rem;
+  gap: 0.45rem;
+  position: absolute;
+  right: 5%;
+  top: 18%;
+}
+
+.replay-key span {
+  align-items: center;
+  display: flex;
+  gap: 0.45rem;
+}
+
+.replay-key i {
+  background: var(--signal);
+  border-radius: 50%;
+  display: block;
+  height: 0.45rem;
+  width: 0.45rem;
+}
+
+.replay-key i[data-object="cosmos"] {
+  background: var(--alert);
+}
+
+.replay-console {
+  align-self: center;
+  border-top: 1px solid var(--line-strong);
+  padding-top: 1rem;
+}
+
+.replay-controls {
+  display: grid;
+  gap: 0.65rem;
+  grid-template-columns: 1fr 1fr;
+}
+
+.replay-controls button {
+  background: transparent;
+  border: 1px solid var(--line-strong);
+  border-radius: 0;
+  color: var(--paper);
+  cursor: pointer;
+  font: 500 0.8rem/1 var(--prose);
+  padding: 0.75rem;
+}
+
+.replay-controls button:first-child {
+  background: var(--signal);
+  border-color: var(--signal);
+  color: var(--ink);
+}
+
+.replay-controls label {
+  color: var(--muted);
+  font-size: 0.76rem;
+  grid-column: 1 / -1;
+  margin-top: 0.4rem;
+}
+
+.replay-controls input {
+  accent-color: var(--signal);
+  display: block;
+  margin-top: 0.6rem;
+  width: 100%;
+}
+
+.replay-readout {
+  border-bottom: 1px solid var(--line);
+  margin: 1.5rem 0 0;
+}
+
+.replay-readout > div {
+  border-top: 1px solid var(--line);
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: 1fr 1.45fr;
+  padding: 0.72rem 0;
+}
+
+.replay-readout dt,
+.replay-readout dd {
+  font-size: 0.72rem;
+  margin: 0;
+}
+
+.replay-readout dt {
+  color: var(--muted);
+}
+
+.replay-readout dd {
+  text-align: right;
+}
+
+.replay-verdict {
+  border-left: 2px solid var(--alert);
+  margin-top: 1.4rem;
+  padding-left: 1rem;
+}
+
+.replay-verdict p {
+  color: var(--muted);
+  font-size: 0.74rem;
+  margin: 0 0 0.35rem;
+}
+
+.replay-verdict strong,
+.replay-verdict span {
+  display: block;
+}
+
+.replay-verdict strong {
+  color: var(--signal);
+  font-size: 0.82rem;
+  font-weight: 500;
+}
+
+.replay-verdict span {
+  color: var(--muted);
+  font-size: 0.75rem;
+  line-height: 1.5;
+  margin-top: 0.55rem;
+}
+
+@media (max-width: 850px) {
+  .replay-workspace {
+    grid-template-columns: 1fr;
+  }
+
+  .replay-console {
+    margin-top: -2rem;
+    position: relative;
+    z-index: 3;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .replay-globe-frame canvas {
+    scroll-behavior: auto;
+  }
+}

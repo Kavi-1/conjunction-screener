@@ -5,6 +5,7 @@ import { IBM_Plex_Mono, Spectral } from "next/font/google";
 import "./globals.css";
 import "./details.css";
 import "./approaches.css";
+import "./replay.css";
 
 // Spectral carries every word on the page. Plex Mono is reserved for measured
 // quantities, so anything set in monospace is a number with a unit behind it.

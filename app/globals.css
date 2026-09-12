@@ -1,0 +1,344 @@
+/* Direction: observatory editorial — ink-blue space, warm instrument markings, restrained serif display type. */
+:root {
+  --ink: #071116;
+  --panel: #0d1c23;
+  --line: rgba(211, 226, 224, 0.18);
+  --paper: #e8efeb;
+  --muted: #91a39f;
+  --signal: #f3c969;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  background: var(--ink);
+  color-scheme: dark;
+  scroll-behavior: smooth;
+}
+
+body {
+  margin: 0;
+  min-width: 320px;
+  background-color: var(--ink);
+  color: var(--paper);
+  font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont,
+    "Segoe UI", sans-serif;
+  font-size: 16px;
+  -webkit-font-smoothing: antialiased;
+}
+
+a {
+  color: inherit;
+}
+
+.site-header {
+  align-items: center;
+  border-bottom: 1px solid var(--line);
+  display: flex;
+  justify-content: space-between;
+  margin-inline: auto;
+  max-width: 1440px;
+  min-height: 72px;
+  padding: 0 5vw;
+}
+
+.wordmark {
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: clamp(1.05rem, 2vw, 1.35rem);
+  letter-spacing: -0.025em;
+  text-decoration: none;
+}
+
+.wordmark span {
+  color: var(--signal);
+  margin-left: 0.15rem;
+}
+
+.mode-label {
+  align-items: center;
+  color: var(--muted);
+  display: flex;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.72rem;
+  margin: 0;
+}
+
+.mode-label span {
+  background: var(--signal);
+  border-radius: 50%;
+  box-shadow: 0 0 0 4px rgba(243, 201, 105, 0.1);
+  height: 0.45rem;
+  margin-right: 0.65rem;
+  width: 0.45rem;
+}
+
+.hero {
+  display: grid;
+  margin-inline: auto;
+  max-width: 1440px;
+  min-height: calc(100svh - 146px);
+  overflow: hidden;
+  padding: clamp(2.5rem, 7vw, 7rem) 5vw 2rem;
+  position: relative;
+}
+
+.intro {
+  max-width: 46rem;
+  position: relative;
+  z-index: 2;
+}
+
+.kicker {
+  color: var(--signal);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.72rem;
+  letter-spacing: 0.08em;
+  margin: 0 0 1.1rem;
+}
+
+h1 {
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: clamp(3rem, 10vw, 8.5rem);
+  font-weight: 400;
+  letter-spacing: -0.065em;
+  line-height: 0.83;
+  margin: 0;
+  max-width: 8ch;
+  text-wrap: balance;
+}
+
+.lede {
+  color: var(--muted);
+  font-size: clamp(0.95rem, 1.7vw, 1.12rem);
+  line-height: 1.65;
+  margin: 1.7rem 0 0;
+  max-width: 37rem;
+}
+
+.orbital-stage {
+  display: grid;
+  margin-top: clamp(-1rem, -2vw, -3rem);
+  min-height: min(64rem, 78vw);
+  position: relative;
+}
+
+.globe-frame {
+  align-self: center;
+  aspect-ratio: 1;
+  justify-self: center;
+  max-width: 860px;
+  position: relative;
+  width: min(78vw, 860px);
+}
+
+.globe-frame::after {
+  border: 1px solid rgba(232, 239, 235, 0.1);
+  border-radius: 50%;
+  content: "";
+  inset: 7%;
+  pointer-events: none;
+  position: absolute;
+}
+
+.globe-canvas {
+  cursor: grab;
+  height: 100%;
+  outline: none;
+  width: 100%;
+}
+
+.globe-canvas:active {
+  cursor: grabbing;
+}
+
+.globe-canvas canvas {
+  display: block;
+}
+
+.globe-status {
+  color: var(--muted);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.7rem;
+  left: 50%;
+  margin: 0;
+  position: absolute;
+  top: 50%;
+  transform: translate(-50%, -50%);
+}
+
+.globe-error {
+  color: #ff9a87;
+}
+
+.utc-clock {
+  bottom: 10%;
+  color: var(--paper);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: clamp(0.63rem, 1vw, 0.75rem);
+  left: 7%;
+  margin: 0;
+  position: absolute;
+}
+
+.utc-clock span {
+  color: var(--muted);
+  display: block;
+  font-family: Inter, ui-sans-serif, system-ui, sans-serif;
+  margin-bottom: 0.3rem;
+}
+
+.orbit-key {
+  align-self: end;
+  border-left: 1px solid var(--line);
+  bottom: 12%;
+  padding-left: 1rem;
+  position: absolute;
+  right: 0;
+  width: 11rem;
+}
+
+.orbit-key > p:first-child {
+  color: var(--muted);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.68rem;
+  margin: 0 0 0.8rem;
+}
+
+.orbit-key ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.orbit-key li {
+  align-items: center;
+  border-top: 1px solid var(--line);
+  display: grid;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.72rem;
+  grid-template-columns: 0.5rem 1fr auto;
+  gap: 0.65rem;
+  padding: 0.62rem 0;
+}
+
+.orbit-key li > span {
+  border-radius: 50%;
+  height: 0.43rem;
+  width: 0.43rem;
+}
+
+.orbit-key b {
+  font-weight: 500;
+}
+
+.orbit-key small {
+  color: var(--muted);
+  font-size: inherit;
+}
+
+.drag-note {
+  color: var(--muted);
+  font-size: 0.68rem;
+  line-height: 1.5;
+  margin: 1rem 0 0;
+}
+
+.globe-tooltip {
+  background: rgba(7, 17, 22, 0.94);
+  border: 1px solid rgba(232, 239, 235, 0.26);
+  color: var(--paper);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  padding: 0.55rem 0.65rem;
+}
+
+.globe-tooltip strong,
+.globe-tooltip span {
+  display: block;
+}
+
+.globe-tooltip strong {
+  font-size: 0.72rem;
+  font-weight: 600;
+}
+
+.globe-tooltip span {
+  color: var(--muted);
+  font-size: 0.64rem;
+  margin-top: 0.25rem;
+}
+
+.site-footer {
+  border-top: 1px solid var(--line);
+  color: var(--muted);
+  display: flex;
+  font-size: 0.7rem;
+  gap: 1rem;
+  justify-content: space-between;
+  margin-inline: auto;
+  max-width: 1440px;
+  padding: 1.2rem 5vw;
+}
+
+.site-footer p {
+  margin: 0;
+}
+
+@media (min-width: 900px) {
+  .hero {
+    align-items: center;
+    grid-template-columns: minmax(23rem, 0.8fr) minmax(35rem, 1.2fr);
+  }
+
+  .orbital-stage {
+    margin-left: -8vw;
+    margin-top: 0;
+    min-height: 0;
+  }
+
+  .globe-frame {
+    width: min(64vw, 860px);
+  }
+}
+
+@media (max-width: 640px) {
+  .site-header {
+    min-height: 62px;
+  }
+
+  .hero {
+    padding-top: 2.8rem;
+  }
+
+  .orbital-stage {
+    margin-inline: -5vw;
+    min-height: 31rem;
+  }
+
+  .globe-frame {
+    width: min(112vw, 560px);
+  }
+
+  .orbit-key {
+    background: rgba(7, 17, 22, 0.76);
+    bottom: 0;
+    right: 5vw;
+  }
+
+  .utc-clock {
+    bottom: 8%;
+    left: 8%;
+  }
+
+  .site-footer {
+    display: grid;
+    line-height: 1.5;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+}

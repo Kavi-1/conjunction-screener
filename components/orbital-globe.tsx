@@ -4,6 +4,7 @@ import type { GlobeInstance } from "globe.gl";
 import { useEffect, useRef, useState } from "react";
 
 import { useCatalog } from "@/components/catalog-provider";
+import { ObjectDetail } from "@/components/object-detail";
 import {
   formatElementAgeHours,
   formatUtcTimestamp,
@@ -67,6 +68,9 @@ export function OrbitalGlobe() {
   const globeRef = useRef<GlobeInstance | null>(null);
   const positionsRef = useRef<SatellitePosition[]>([]);
   const [positions, setPositions] = useState<SatellitePosition[]>([]);
+  const [selectedCatalogNumber, setSelectedCatalogNumber] = useState<string | null>(
+    null,
+  );
   const [observedAtUtc, setObservedAtUtc] = useState<Date | null>(null);
   const [renderError, setRenderError] = useState<string | null>(null);
 
@@ -118,6 +122,9 @@ export function OrbitalGlobe() {
           .pointRadius(0.34)
           .pointResolution(12)
           .pointLabel(tooltipMarkup)
+          .onPointClick((point) =>
+            setSelectedCatalogNumber(asSatellitePosition(point).catalogNumber),
+          )
           .pointsTransitionDuration(700)
           .pointsData(positionsRef.current)
           .pointOfView({ lat: 18, lng: -24, altitude: 2.25 });
@@ -191,6 +198,12 @@ export function OrbitalGlobe() {
         </ul>
         <p className="drag-note">Drag to turn. Scroll to move closer.</p>
       </aside>
+
+      <ObjectDetail
+        positions={positions}
+        selectedCatalogNumber={selectedCatalogNumber}
+        onSelect={setSelectedCatalogNumber}
+      />
     </div>
   );
 }

@@ -1,6 +1,7 @@
 import { CatalogProvider, CatalogStatus } from "@/components/catalog-provider";
 import { ElementReadout } from "@/components/element-readout";
 import { OrbitalGlobe } from "@/components/orbital-globe";
+import { OverheadPasses } from "@/components/overhead-passes";
 
 export default function HomePage() {
   return (
@@ -21,6 +22,7 @@ export default function HomePage() {
               SGP4 from current orbital elements and redrawn every second against UTC.
             </p>
             <ElementReadout />
+            <OverheadPasses />
           </div>
 
           <OrbitalGlobe />

@@ -1,0 +1,218 @@
+.object-inspector {
+  background: rgba(7, 17, 22, 0.86);
+  border-top: 1px solid var(--line-strong);
+  bottom: 8%;
+  left: 0;
+  padding-top: 0.8rem;
+  position: absolute;
+  width: min(15rem, 32%);
+  z-index: 3;
+}
+
+.object-inspector > label {
+  color: var(--muted);
+  display: block;
+  font-size: 0.8rem;
+}
+
+.object-inspector select {
+  appearance: none;
+  background: transparent;
+  border: 0;
+  border-bottom: 1px solid var(--line);
+  border-radius: 0;
+  color: var(--paper);
+  cursor: pointer;
+  font: 500 0.92rem/1.4 var(--prose);
+  margin-top: 0.25rem;
+  max-width: 100%;
+  padding: 0.2rem 1.2rem 0.45rem 0;
+  width: 100%;
+}
+
+.object-inspector select option {
+  background: var(--panel);
+}
+
+.object-inspector dl {
+  display: grid;
+  gap: 0.48rem;
+  margin: 0.8rem 0 0;
+}
+
+.object-inspector dl > div {
+  display: grid;
+  gap: 0.5rem;
+  grid-template-columns: 1fr 1.3fr;
+}
+
+.object-inspector dt,
+.object-inspector dd {
+  font-size: 0.7rem;
+  margin: 0;
+}
+
+.object-inspector dt {
+  color: var(--muted);
+}
+
+.object-inspector dd {
+  overflow-wrap: anywhere;
+}
+
+.object-inspector dd[data-stale="true"] {
+  color: var(--alert);
+}
+
+.overhead {
+  border-top: 1px solid var(--line-strong);
+  margin-top: 2.3rem;
+  max-width: 34rem;
+  padding-top: 0.9rem;
+}
+
+.overhead-heading {
+  align-items: end;
+  display: flex;
+  gap: 1rem;
+  justify-content: space-between;
+}
+
+.overhead h2 {
+  font-size: 1rem;
+  font-weight: 500;
+  margin: 0;
+}
+
+.overhead-heading p,
+.pass-results > p,
+.pass-status,
+.city-form > label,
+.city-form > p {
+  color: var(--muted);
+  font-size: 0.78rem;
+  line-height: 1.45;
+  margin: 0.25rem 0 0;
+}
+
+.overhead button {
+  background: transparent;
+  border: 1px solid var(--line-strong);
+  border-radius: 0;
+  color: var(--paper);
+  cursor: pointer;
+  flex: none;
+  font: 500 0.78rem/1 var(--prose);
+  padding: 0.7rem 0.8rem;
+}
+
+.overhead button:hover {
+  border-color: var(--signal);
+  color: var(--signal);
+}
+
+.pass-status {
+  padding: 0.8rem 0;
+}
+
+.city-form {
+  padding: 0.85rem 0 0;
+}
+
+.city-form > div {
+  display: flex;
+  margin-top: 0.55rem;
+}
+
+.city-form input {
+  background: transparent;
+  border: 1px solid var(--line-strong);
+  border-radius: 0;
+  color: var(--paper);
+  font: 0.85rem/1 var(--prose);
+  min-width: 0;
+  padding: 0.65rem 0.7rem;
+  width: 100%;
+}
+
+.city-form button {
+  border-left: 0;
+}
+
+.city-form > p {
+  color: var(--alert);
+}
+
+.pass-results {
+  padding-top: 0.6rem;
+}
+
+.pass-results strong {
+  color: var(--paper);
+  font-weight: 500;
+}
+
+.pass-results ol {
+  border-bottom: 1px solid var(--line);
+  list-style: none;
+  margin: 0.75rem 0 0;
+  padding: 0;
+}
+
+.pass-results li {
+  border-top: 1px solid var(--line);
+  padding: 0.7rem 0;
+}
+
+.pass-results li > div:first-child {
+  align-items: baseline;
+  display: flex;
+  gap: 0.6rem;
+  justify-content: space-between;
+}
+
+.pass-results li > div:first-child span {
+  color: var(--muted);
+  font-size: 0.68rem;
+}
+
+.pass-results dl {
+  display: grid;
+  gap: 0.5rem;
+  grid-template-columns: 1.5fr 1fr 0.8fr;
+  margin: 0.55rem 0 0;
+}
+
+.pass-results dt {
+  color: var(--muted);
+  font-size: 0.68rem;
+}
+
+.pass-results dd {
+  font-size: 0.72rem;
+  margin: 0.18rem 0 0;
+}
+
+@media (max-width: 899px) {
+  .object-inspector {
+    bottom: auto;
+    left: 5vw;
+    margin-top: -2rem;
+    position: relative;
+    width: min(23rem, 90vw);
+  }
+}
+
+@media (max-width: 640px) {
+  .overhead-heading {
+    align-items: start;
+  }
+
+  .object-inspector {
+    margin-top: 0;
+  }
+
+  .pass-results dl {
+    grid-template-columns: 1.35fr 1fr 0.75fr;
+  }
+}

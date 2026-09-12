@@ -18,8 +18,11 @@ const loadCachedVisualCatalog = unstable_cache(
   { revalidate: CATALOG_CACHE_SECONDS },
 );
 const loadCachedActiveCatalog = unstable_cache(
-  () => loadActiveFromCelestrak(),
-  ["celestrak-active-catalog-v1"],
+  () => loadCatalogWithFallback("active", {
+    loadVisual: loadVisualFromCelestrak,
+    loadActive: loadActiveFromCelestrak,
+  }),
+  ["celestrak-active-catalog-v2"],
   { revalidate: CATALOG_CACHE_SECONDS },
 );
 
@@ -38,10 +41,9 @@ export async function GET(request: Request) {
   }
 
   try {
-    const catalog = await loadCatalogWithFallback(group, {
-      loadVisual: loadCachedVisualCatalog,
-      loadActive: loadCachedActiveCatalog,
-    });
+    const catalog = await (group === "active"
+      ? loadCachedActiveCatalog()
+      : loadCachedVisualCatalog());
     return NextResponse.json(catalog, {
       headers: {
         "Cache-Control": `public, max-age=300, s-maxage=${CATALOG_CACHE_SECONDS}, stale-while-revalidate=86400`,
@@ -51,10 +53,10 @@ export async function GET(request: Request) {
     });
   } catch {
     return NextResponse.json(
-      { error: "Live orbital elements are temporarily unavailable." },
+      { error: "Celestrak and the reduced visual fallback are temporarily unavailable." },
       {
         status: 502,
-        headers: { "Cache-Control": "no-store" },
+        headers: { "Cache-Control": "no-store", "Retry-After": "600" },
       },
     );
   }

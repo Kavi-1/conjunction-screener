@@ -81,7 +81,14 @@ export function SatelliteScreen() {
     let active = true;
     void fetch("/api/tle?group=active", { headers: { Accept: "application/json" } })
       .then(async (response) => {
-        if (!response.ok) throw new Error(`Catalog route returned ${response.status}`);
+        if (!response.ok) {
+          const body = await response.json().catch(() => null) as { error?: unknown } | null;
+          throw new Error(
+            typeof body?.error === "string"
+              ? body.error
+              : `Catalog route returned ${response.status}`,
+          );
+        }
         const payload = (await response.json()) as SatelliteCatalogPayload;
         if (
           !Array.isArray(payload.satellites) ||

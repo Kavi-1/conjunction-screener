@@ -1,0 +1,25 @@
+{
+  "source": "https://celestrak.org/events/collision/",
+  "scenarioSource": "https://celestrak.org/events/VDF/Collision.vdf",
+  "documentedCollisionUtc": "2009-02-10T16:55:59.806Z",
+  "replayStartUtc": "2009-02-10T16:50:00.000Z",
+  "replayEndUtc": "2009-02-10T17:02:00.000Z",
+  "satellites": [
+    {
+      "name": "IRIDIUM 33",
+      "catalogNumber": "24946",
+      "internationalDesignator": "1997-051C",
+      "regime": "LEO",
+      "line1": "1 24946U 97051C   09040.78448243  .00000153  00000-0  47668-4 0  4775",
+      "line2": "2 24946  86.3994 121.7028 0002288  85.1644 274.9812 14.34219863597336"
+    },
+    {
+      "name": "COSMOS 2251",
+      "catalogNumber": "22675",
+      "internationalDesignator": "1993-036A",
+      "regime": "LEO",
+      "line1": "1 22675U 93036A   09040.49834364 -.00000001  00000-0  95251-5 0  7411",
+      "line2": "2 22675  74.0355  19.4646 0016027  98.7014 261.5952 14.31135643817415"
+    }
+  ]
+}

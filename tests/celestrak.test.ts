@@ -3,7 +3,7 @@ import test from "node:test";
 
 import {
   CATALOG_CACHE_SECONDS,
-  CELESTRAK_VISUAL_URL,
+  celestrakCatalogUrl,
   classifyOrbitRegime,
   createCelestrakLoader,
   normalizeGpCatalog,
@@ -64,10 +64,26 @@ test("loader uses the documented endpoint, identifies itself, and caches", async
   const second = await load();
 
   assert.equal(requestCount, 1);
-  assert.equal(requestedUrl, CELESTRAK_VISUAL_URL);
+  assert.equal(requestedUrl, celestrakCatalogUrl("visual"));
   assert.match(requestedUserAgent, /Miss-Distance/);
   assert.equal(first, concurrent);
   assert.equal(first, second);
+});
+
+test("loader keeps active and visual groups explicit", async () => {
+  let requestedUrl = "";
+  const load = createCelestrakLoader({
+    group: "active",
+    fetcher: async (input) => {
+      requestedUrl = String(input);
+      return Response.json([gpRecord]);
+    },
+  });
+
+  const catalog = await load();
+
+  assert.equal(requestedUrl, celestrakCatalogUrl("active"));
+  assert.equal(catalog.group, "active");
 });
 
 test("loader serves the last catalog stale after an upstream error", async () => {

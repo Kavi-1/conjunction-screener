@@ -1,7 +1,9 @@
 import type { OmmRecord, OrbitRegime } from "@/lib/propagate";
 
-export const CELESTRAK_VISUAL_URL =
-  "https://celestrak.org/NORAD/elements/gp.php?GROUP=VISUAL&FORMAT=JSON";
+export type CatalogGroup = "visual" | "active";
+
+export const CELESTRAK_BASE_URL =
+  "https://celestrak.org/NORAD/elements/gp.php";
 export const CATALOG_CACHE_SECONDS = 7_200;
 
 const USER_AGENT =
@@ -11,7 +13,7 @@ const EARTH_RADIUS_KM = 6_371;
 
 export interface SatelliteCatalogPayload {
   source: "celestrak";
-  group: "visual";
+  group: CatalogGroup;
   fetchedAtUtc: string;
   stale: boolean;
   discardedRecords: number;
@@ -19,8 +21,13 @@ export interface SatelliteCatalogPayload {
 }
 
 interface LoaderOptions {
+  group?: CatalogGroup;
   fetcher?: typeof fetch;
   now?: () => number;
+}
+
+export function celestrakCatalogUrl(group: CatalogGroup): string {
+  return `${CELESTRAK_BASE_URL}?GROUP=${group.toUpperCase()}&FORMAT=JSON`;
 }
 
 function finiteNumber(value: unknown): number | null {
@@ -136,6 +143,7 @@ export function normalizeGpCatalog(value: unknown): {
 }
 
 export function createCelestrakLoader({
+  group = "visual",
   fetcher = fetch,
   now = Date.now,
 }: LoaderOptions = {}) {
@@ -156,7 +164,7 @@ export function createCelestrakLoader({
     if (!inFlight) {
       inFlight = (async () => {
         try {
-          const response = await fetcher(CELESTRAK_VISUAL_URL, {
+          const response = await fetcher(celestrakCatalogUrl(group), {
             cache: "no-store",
             headers: {
               Accept: "application/json",
@@ -171,7 +179,7 @@ export function createCelestrakLoader({
           const normalized = normalizeGpCatalog(await response.json());
           const payload: SatelliteCatalogPayload = {
             source: "celestrak",
-            group: "visual",
+            group,
             fetchedAtUtc: new Date(requestedAtMs).toISOString(),
             stale: false,
             ...normalized,

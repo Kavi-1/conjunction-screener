@@ -3,21 +3,43 @@ import { NextResponse } from "next/server";
 
 import {
   CATALOG_CACHE_SECONDS,
+  type CatalogGroup,
   createCelestrakLoader,
 } from "@/lib/celestrak";
 
 export const dynamic = "force-dynamic";
 
-const loadFromCelestrak = createCelestrakLoader();
-const loadCachedCatalog = unstable_cache(
-  () => loadFromCelestrak(),
+const loadVisualFromCelestrak = createCelestrakLoader({ group: "visual" });
+const loadActiveFromCelestrak = createCelestrakLoader({ group: "active" });
+const loadCachedVisualCatalog = unstable_cache(
+  () => loadVisualFromCelestrak(),
   ["celestrak-visual-catalog-v1"],
   { revalidate: CATALOG_CACHE_SECONDS },
 );
+const loadCachedActiveCatalog = unstable_cache(
+  () => loadActiveFromCelestrak(),
+  ["celestrak-active-catalog-v1"],
+  { revalidate: CATALOG_CACHE_SECONDS },
+);
 
-export async function GET() {
+function requestedGroup(request: Request): CatalogGroup | null {
+  const value = new URL(request.url).searchParams.get("group") ?? "visual";
+  return value === "visual" || value === "active" ? value : null;
+}
+
+export async function GET(request: Request) {
+  const group = requestedGroup(request);
+  if (!group) {
+    return NextResponse.json(
+      { error: "Catalog group must be visual or active." },
+      { status: 400, headers: { "Cache-Control": "no-store" } },
+    );
+  }
+
   try {
-    const catalog = await loadCachedCatalog();
+    const catalog = await (group === "active"
+      ? loadCachedActiveCatalog()
+      : loadCachedVisualCatalog());
     return NextResponse.json(catalog, {
       headers: {
         "Cache-Control": `public, max-age=300, s-maxage=${CATALOG_CACHE_SECONDS}, stale-while-revalidate=86400`,

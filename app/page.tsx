@@ -2,6 +2,7 @@ import { CatalogProvider, CatalogStatus } from "@/components/catalog-provider";
 import { ElementReadout } from "@/components/element-readout";
 import { OrbitalGlobe } from "@/components/orbital-globe";
 import { OverheadPasses } from "@/components/overhead-passes";
+import Link from "next/link";
 
 export default function HomePage() {
   return (
@@ -11,6 +12,10 @@ export default function HomePage() {
           <a className="wordmark" href="#top" aria-label="Miss Distance home">
             Miss Distance<span aria-hidden="true">°</span>
           </a>
+          <nav aria-label="Primary navigation">
+            <Link href="/" aria-current="page">Globe</Link>
+            <Link href="/approaches">Close approaches</Link>
+          </nav>
           <CatalogStatus />
         </header>
 

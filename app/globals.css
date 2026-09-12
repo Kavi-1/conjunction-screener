@@ -90,6 +90,22 @@ a:hover {
   margin-left: 0.1rem;
 }
 
+.site-header nav {
+  display: flex;
+  font-size: 0.82rem;
+  gap: 1.1rem;
+}
+
+.site-header nav a {
+  color: var(--muted);
+  text-decoration: none;
+}
+
+.site-header nav a:hover,
+.site-header nav a[aria-current="page"] {
+  color: var(--paper);
+}
+
 .feed-state {
   align-items: baseline;
   color: var(--muted);

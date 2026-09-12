@@ -10,21 +10,21 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint .",
-    "test": "node --test tests/*.test.mjs"
+    "test": "node --test tests/*.test.mjs tests/*.test.ts"
   },
   "dependencies": {
     "globe.gl": "2.46.2",
     "next": "16.3.5",
     "react": "19.3.0",
     "react-dom": "19.3.0",
-    "satellite.js": "7.1.0"
+    "satellite.js": "6.0.2"
   },
   "devDependencies": {
     "@types/node": "22.20.2",
     "@types/react": "19.3.0",
     "@types/react-dom": "19.3.0",
-    "eslint": "10.10.0",
+    "eslint": "9.39.5",
     "eslint-config-next": "16.3.5",
-    "typescript": "7.0.2"
+    "typescript": "5.9.3"
   }
 }

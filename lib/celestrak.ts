@@ -142,6 +142,7 @@ export function createCelestrakLoader({
   let memoryCache:
     | { payload: SatelliteCatalogPayload; cachedAtMs: number }
     | undefined;
+  let inFlight: Promise<SatelliteCatalogPayload> | undefined;
 
   return async function loadCatalog(): Promise<SatelliteCatalogPayload> {
     const requestedAtMs = now();
@@ -152,32 +153,42 @@ export function createCelestrakLoader({
       return memoryCache.payload;
     }
 
+    if (!inFlight) {
+      inFlight = (async () => {
+        try {
+          const response = await fetcher(CELESTRAK_VISUAL_URL, {
+            cache: "no-store",
+            headers: {
+              Accept: "application/json",
+              "User-Agent": USER_AGENT,
+            },
+          });
+
+          if (!response.ok) {
+            throw new Error(`Celestrak returned HTTP ${response.status}`);
+          }
+
+          const normalized = normalizeGpCatalog(await response.json());
+          const payload: SatelliteCatalogPayload = {
+            source: "celestrak",
+            group: "visual",
+            fetchedAtUtc: new Date(requestedAtMs).toISOString(),
+            stale: false,
+            ...normalized,
+          };
+          memoryCache = { payload, cachedAtMs: requestedAtMs };
+          return payload;
+        } catch (error) {
+          if (memoryCache) return { ...memoryCache.payload, stale: true };
+          throw error;
+        }
+      })();
+    }
+
     try {
-      const response = await fetcher(CELESTRAK_VISUAL_URL, {
-        cache: "no-store",
-        headers: {
-          Accept: "application/json",
-          "User-Agent": USER_AGENT,
-        },
-      });
-
-      if (!response.ok) {
-        throw new Error(`Celestrak returned HTTP ${response.status}`);
-      }
-
-      const normalized = normalizeGpCatalog(await response.json());
-      const payload: SatelliteCatalogPayload = {
-        source: "celestrak",
-        group: "visual",
-        fetchedAtUtc: new Date(requestedAtMs).toISOString(),
-        stale: false,
-        ...normalized,
-      };
-      memoryCache = { payload, cachedAtMs: requestedAtMs };
-      return payload;
-    } catch (error) {
-      if (memoryCache) return { ...memoryCache.payload, stale: true };
-      throw error;
+      return await inFlight;
+    } finally {
+      inFlight = undefined;
     }
   };
 }

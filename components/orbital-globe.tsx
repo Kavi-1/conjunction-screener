@@ -1,19 +1,18 @@
 "use client";
 
 import type { GlobeInstance } from "globe.gl";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
-import fixture from "@/fixtures/satellites.json";
+import { useCatalog } from "@/components/catalog-provider";
 import {
   formatElementAgeHours,
   formatUtcTimestamp,
   isStaleElementAge,
 } from "@/lib/elements";
 import {
-  propagateTleAtUtc,
+  propagateSatelliteAtUtc,
   type OrbitRegime,
   type SatellitePosition,
-  type TleRecord,
 } from "@/lib/propagate";
 
 const REGIME_COLORS: Record<OrbitRegime, string> = {
@@ -34,14 +33,28 @@ function asSatellitePosition(point: object): SatellitePosition {
   return point as SatellitePosition;
 }
 
+function escapeHtml(value: string): string {
+  return value.replace(
+    /[&<>"']/g,
+    (character) =>
+      ({
+        "&": "&amp;",
+        "<": "&lt;",
+        ">": "&gt;",
+        '"': "&quot;",
+        "'": "&#039;",
+      })[character] ?? character,
+  );
+}
+
 function tooltipMarkup(point: object): string {
   const satellite = asSatellitePosition(point);
   const ageClass = isStaleElementAge(satellite.elementAgeHours) ? ' class="stale"' : "";
 
   return [
     '<div class="globe-tooltip">',
-    `<strong>${satellite.name}</strong>`,
-    `<span>NORAD ${satellite.catalogNumber}, ${satellite.internationalDesignator}</span>`,
+    `<strong>${escapeHtml(satellite.name)}</strong>`,
+    `<span>NORAD ${escapeHtml(satellite.catalogNumber)}, ${escapeHtml(satellite.internationalDesignator)}</span>`,
     `<span>${satellite.regime}, ${Math.round(satellite.altitudeKm).toLocaleString("en-US")} km, ${satellite.velocityKmS.toFixed(2)} km/s</span>`,
     `<span${ageClass}>Elements ${formatElementAgeHours(satellite.elementAgeHours)} old</span>`,
     "</div>",
@@ -49,10 +62,10 @@ function tooltipMarkup(point: object): string {
 }
 
 export function OrbitalGlobe() {
+  const { records } = useCatalog();
   const containerRef = useRef<HTMLDivElement>(null);
   const globeRef = useRef<GlobeInstance | null>(null);
   const positionsRef = useRef<SatellitePosition[]>([]);
-  const records = useMemo(() => fixture as TleRecord[], []);
   const [positions, setPositions] = useState<SatellitePosition[]>([]);
   const [observedAtUtc, setObservedAtUtc] = useState<Date | null>(null);
   const [renderError, setRenderError] = useState<string | null>(null);
@@ -61,7 +74,7 @@ export function OrbitalGlobe() {
     const updatePositions = () => {
       const atUtc = new Date();
       const nextPositions = records.flatMap((record) => {
-        const position = propagateTleAtUtc(record, atUtc);
+        const position = propagateSatelliteAtUtc(record, atUtc);
         return position ? [position] : [];
       });
       positionsRef.current = nextPositions;

@@ -107,6 +107,14 @@ a:hover {
   width: 0.4rem;
 }
 
+.feed-state[data-status="live"] span {
+  background: #65d6ce;
+}
+
+.feed-state[data-status="fallback"] span {
+  background: var(--alert);
+}
+
 .hero {
   display: grid;
   margin-inline: auto;

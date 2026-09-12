@@ -2,21 +2,21 @@
 
 import { useEffect, useMemo, useState } from "react";
 
-import fixture from "@/fixtures/satellites.json";
+import { useCatalog } from "@/components/catalog-provider";
 import {
   STALE_ELEMENT_AGE_HOURS,
   elementAgeHoursAt,
   formatElementAgeHours,
   isStaleElementAge,
 } from "@/lib/elements";
-import { tleEpochUtc, type TleRecord } from "@/lib/propagate";
+import { elementEpochUtc } from "@/lib/propagate";
 
 export function ElementReadout() {
-  const records = useMemo(() => fixture as TleRecord[], []);
+  const { records, status } = useCatalog();
   const oldestEpochUtc = useMemo(
     () =>
       records
-        .map((record) => tleEpochUtc(record.line1))
+        .map(elementEpochUtc)
         .reduce((oldest, epoch) => (epoch < oldest ? epoch : oldest)),
     [records],
   );
@@ -38,7 +38,7 @@ export function ElementReadout() {
     <>
       <dl className="readout">
         <div>
-          <dt>Objects tracked</dt>
+          <dt>{status === "live" ? "Live objects" : "Objects tracked"}</dt>
           <dd className="measure">{records.length}</dd>
         </div>
         <div>

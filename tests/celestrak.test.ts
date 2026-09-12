@@ -59,13 +59,14 @@ test("loader uses the documented endpoint, identifies itself, and caches", async
   };
   const load = createCelestrakLoader({ fetcher, now: () => nowMs });
 
-  const first = await load();
+  const [first, concurrent] = await Promise.all([load(), load()]);
   nowMs += (CATALOG_CACHE_SECONDS - 1) * 1_000;
   const second = await load();
 
   assert.equal(requestCount, 1);
   assert.equal(requestedUrl, CELESTRAK_VISUAL_URL);
   assert.match(requestedUserAgent, /Miss-Distance/);
+  assert.equal(first, concurrent);
   assert.equal(first, second);
 });
 

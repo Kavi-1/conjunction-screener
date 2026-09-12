@@ -6,6 +6,7 @@ import {
   celestrakCatalogUrl,
   classifyOrbitRegime,
   createCelestrakLoader,
+  loadCatalogWithFallback,
   normalizeGpCatalog,
 } from "../lib/celestrak.ts";
 
@@ -100,4 +101,23 @@ test("loader serves the last catalog stale after an upstream error", async () =>
   nowMs += CATALOG_CACHE_SECONDS * 1_000;
 
   assert.equal((await load()).stale, true);
+});
+
+test("active catalog can fall back to an explicitly labeled visual scope", async () => {
+  const visual = {
+    source: "celestrak" as const,
+    group: "visual" as const,
+    fetchedAtUtc: "2026-09-12T12:00:00.000Z",
+    stale: false,
+    discardedRecords: 0,
+    satellites: normalizeGpCatalog([gpRecord]).satellites,
+  };
+  const catalog = await loadCatalogWithFallback("active", {
+    loadActive: async () => { throw new Error("Celestrak throttled ACTIVE"); },
+    loadVisual: async () => visual,
+  });
+
+  assert.equal(catalog.group, "visual");
+  assert.equal(catalog.fallbackFor, "active");
+  assert.equal(catalog.satellites.length, 1);
 });

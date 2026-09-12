@@ -18,6 +18,12 @@ export interface SatelliteCatalogPayload {
   stale: boolean;
   discardedRecords: number;
   satellites: OmmRecord[];
+  fallbackFor?: CatalogGroup;
+}
+
+interface CatalogLoaders {
+  loadVisual: () => Promise<SatelliteCatalogPayload>;
+  loadActive: () => Promise<SatelliteCatalogPayload>;
 }
 
 interface LoaderOptions {
@@ -28,6 +34,20 @@ interface LoaderOptions {
 
 export function celestrakCatalogUrl(group: CatalogGroup): string {
   return `${CELESTRAK_BASE_URL}?GROUP=${group.toUpperCase()}&FORMAT=JSON`;
+}
+
+export async function loadCatalogWithFallback(
+  group: CatalogGroup,
+  loaders: CatalogLoaders,
+): Promise<SatelliteCatalogPayload> {
+  if (group === "visual") return loaders.loadVisual();
+
+  try {
+    return await loaders.loadActive();
+  } catch {
+    const visual = await loaders.loadVisual();
+    return { ...visual, fallbackFor: "active" };
+  }
 }
 
 function finiteNumber(value: unknown): number | null {

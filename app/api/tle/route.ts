@@ -5,6 +5,7 @@ import {
   CATALOG_CACHE_SECONDS,
   type CatalogGroup,
   createCelestrakLoader,
+  loadCatalogWithFallback,
 } from "@/lib/celestrak";
 
 export const dynamic = "force-dynamic";
@@ -37,12 +38,14 @@ export async function GET(request: Request) {
   }
 
   try {
-    const catalog = await (group === "active"
-      ? loadCachedActiveCatalog()
-      : loadCachedVisualCatalog());
+    const catalog = await loadCatalogWithFallback(group, {
+      loadVisual: loadCachedVisualCatalog,
+      loadActive: loadCachedActiveCatalog,
+    });
     return NextResponse.json(catalog, {
       headers: {
         "Cache-Control": `public, max-age=300, s-maxage=${CATALOG_CACHE_SECONDS}, stale-while-revalidate=86400`,
+        "X-Catalog-Scope": catalog.fallbackFor ? "visual-fallback" : catalog.group,
         "X-Content-Type-Options": "nosniff",
       },
     });

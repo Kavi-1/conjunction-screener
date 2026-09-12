@@ -83,7 +83,10 @@ export function SatelliteScreen() {
       .then(async (response) => {
         if (!response.ok) throw new Error(`Catalog route returned ${response.status}`);
         const payload = (await response.json()) as SatelliteCatalogPayload;
-        if (!Array.isArray(payload.satellites) || payload.group !== "active") {
+        if (
+          !Array.isArray(payload.satellites) ||
+          (payload.group !== "active" && payload.fallbackFor !== "active")
+        ) {
           throw new Error("Catalog route returned an invalid active catalog");
         }
         if (active) {
@@ -126,7 +129,8 @@ export function SatelliteScreen() {
           <h2 id="satellite-tab">Satellites</h2>
           <p>
             Close approaches computed locally from current Celestrak elements. The
-            worker screens the freshest active LEO objects without blocking this page.
+            worker screens the freshest LEO objects without blocking this page.
+            {catalog?.fallbackFor === "active" && " Celestrak throttled the active catalog, so this run uses the smaller visual catalog."}
           </p>
         </div>
         <label>
@@ -158,7 +162,7 @@ export function SatelliteScreen() {
       {report && (
         <>
           <dl className="gate-readout">
-            <div><dt>Active catalog</dt><dd className="measure">{report.stats.catalogObjects}</dd></div>
+            <div><dt>{catalog?.fallbackFor === "active" ? "Visual fallback" : "Active catalog"}</dt><dd className="measure">{report.stats.catalogObjects}</dd></div>
             <div><dt>Freshest LEO sample</dt><dd className="measure">{report.stats.screenedObjects} / {report.stats.eligibleLeoObjects}</dd></div>
             <div><dt>All pairs</dt><dd className="measure">{report.stats.initialPairs.toLocaleString()}</dd></div>
             <div><dt>After apsis gate</dt><dd className="measure">{report.stats.afterApsisPairs.toLocaleString()}</dd></div>

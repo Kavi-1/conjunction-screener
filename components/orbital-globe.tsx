@@ -1,15 +1,18 @@
 "use client";
 
 import type { GlobeInstance } from "globe.gl";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Mesh, MeshBasicMaterial, SphereGeometry } from "three";
 
 import { useCatalog } from "@/components/catalog-provider";
+import { useLandPolygons, type LandFeature } from "@/components/use-land-polygons";
 import { ObjectDetail } from "@/components/object-detail";
 import {
   formatElementAgeHours,
   formatUtcTimestamp,
   isStaleElementAge,
 } from "@/lib/elements";
+import { groundTrackSegments, type GroundTrackPoint } from "@/lib/ground-track";
 import {
   propagateSatelliteAtUtc,
   type OrbitRegime,
@@ -22,6 +25,19 @@ const REGIME_COLORS: Record<OrbitRegime, string> = {
   GEO: "#ff7d66",
   HEO: "#b7a6ff",
 };
+const SELECTED_COLOR = "#ffffff";
+/* The object band sits along the foot of the view, so the sphere is nudged up
+   to clear it rather than being faded out behind it. */
+const GLOBE_LIFT_FRACTION = 0.07;
+const LAND_COLOR = "#54666d";
+const LAND_SIDE_COLOR = "#25373e";
+
+const TRACK_COLOR = "rgba(243, 201, 105, 0.85)";
+
+/** Fractions of the rendered globe radius. Objects are drawn far larger than
+ *  scale so they can be seen and hit; the selected one is larger again. */
+const OBJECT_RADIUS_FRACTION = 0.013;
+const SELECTED_RADIUS_FRACTION = 0.024;
 
 interface GlobeMaterialControls {
   color: { set: (color: string) => void };
@@ -64,15 +80,36 @@ function tooltipMarkup(point: object): string {
 
 export function OrbitalGlobe() {
   const { records } = useCatalog();
+  const landFeatures = useLandPolygons();
+  const landFeaturesRef = useRef<LandFeature[]>([]);
+  const trackSegmentsRef = useRef<GroundTrackPoint[][]>([]);
   const containerRef = useRef<HTMLDivElement>(null);
   const globeRef = useRef<GlobeInstance | null>(null);
   const positionsRef = useRef<SatellitePosition[]>([]);
+  // three-globe diffs its data by object identity. Handing it freshly built
+  // position objects each tick made it destroy and rebuild every satellite once
+  // a second, which is what flickered. These entries are kept and mutated in
+  // place so the digest takes its update path and only moves them.
+  const globeEntriesRef = useRef(new Map<string, SatellitePosition>());
+  const selectedRef = useRef<string | null>(null);
   const [positions, setPositions] = useState<SatellitePosition[]>([]);
   const [selectedCatalogNumber, setSelectedCatalogNumber] = useState<string | null>(
     null,
   );
   const [observedAtUtc, setObservedAtUtc] = useState<Date | null>(null);
   const [renderError, setRenderError] = useState<string | null>(null);
+
+  // One geometry and one material per regime, shared by every mesh. Building
+  // them per object would allocate hundreds of each on every tick.
+  const meshParts = useMemo(() => {
+    const geometry = new SphereGeometry(1, 10, 8);
+    const materials = new Map<string, MeshBasicMaterial>();
+    for (const [regime, color] of Object.entries(REGIME_COLORS)) {
+      materials.set(regime, new MeshBasicMaterial({ color }));
+    }
+    materials.set("selected", new MeshBasicMaterial({ color: SELECTED_COLOR }));
+    return { geometry, materials };
+  }, []);
 
   useEffect(() => {
     const updatePositions = () => {
@@ -84,6 +121,21 @@ export function OrbitalGlobe() {
       positionsRef.current = nextPositions;
       setPositions(nextPositions);
       setObservedAtUtc(atUtc);
+
+      const entries = globeEntriesRef.current;
+      const present = new Set<string>();
+      for (const position of nextPositions) {
+        present.add(position.catalogNumber);
+        const existing = entries.get(position.catalogNumber);
+        if (existing) Object.assign(existing, position);
+        else entries.set(position.catalogNumber, { ...position });
+      }
+      for (const catalogNumber of [...entries.keys()]) {
+        if (!present.has(catalogNumber)) entries.delete(catalogNumber);
+      }
+      // A new array so the prop registers as changed; the same entries inside
+      // so the objects themselves are only repositioned.
+      globeRef.current?.objectsData([...entries.values()]);
     };
 
     updatePositions();
@@ -91,43 +143,106 @@ export function OrbitalGlobe() {
     return () => window.clearInterval(intervalId);
   }, [records]);
 
+  // Before anything is clicked the panel falls back to the first object, so the
+  // track has to resolve the same way or the globe and the panel disagree about
+  // what is selected. Refresh the path every 30 seconds as Earth rotates,
+  // independently of the one-second point updates.
+  const activeCatalogNumber =
+    selectedCatalogNumber ?? positions[0]?.catalogNumber ?? null;
+  const [trackEpochMs, setTrackEpochMs] = useState(() => Date.now());
+  useEffect(() => {
+    const intervalId = window.setInterval(() => setTrackEpochMs(Date.now()), 30_000);
+    return () => window.clearInterval(intervalId);
+  }, []);
+
+  const trackSegments = useMemo(() => {
+    const record = records.find(
+      (candidate) => candidate.catalogNumber === activeCatalogNumber,
+    );
+    return record ? groundTrackSegments(record, new Date(trackEpochMs)) : [];
+  }, [records, activeCatalogNumber, trackEpochMs]);
+
+  // Rebuilt whenever the selection changes: replacing this accessor is what
+  // makes three-globe recreate the meshes with the new highlight.
+  const buildObjectMesh = useCallback(
+    (globe: GlobeInstance) => (point: object) => {
+      const satellite = asSatellitePosition(point);
+      const isSelected = satellite.catalogNumber === selectedRef.current;
+      const mesh = new Mesh(meshParts.geometry);
+      mesh.material =
+        meshParts.materials.get(isSelected ? "selected" : satellite.regime) ??
+        meshParts.materials.get("LEO")!;
+      mesh.scale.setScalar(
+        globe.getGlobeRadius() *
+          (isSelected ? SELECTED_RADIUS_FRACTION : OBJECT_RADIUS_FRACTION),
+      );
+      return mesh;
+    },
+    [meshParts],
+  );
+
   useEffect(() => {
     const element = containerRef.current;
     if (!element) return;
 
     let cancelled = false;
     let resizeObserver: ResizeObserver | undefined;
+    const globeEntries = globeEntriesRef.current;
 
     void import("globe.gl")
       .then(({ default: Globe }) => {
         if (cancelled) return;
 
-        const size = Math.max(320, element.clientWidth);
+        // The canvas fills its box instead of being squared off inside it, so a
+        // zoomed globe runs past the edges and is faded there rather than
+        // meeting a hard cut. The sphere stays circular either way: the camera
+        // field of view is vertical, so only the horizontal room changes.
+        const width = Math.max(280, Math.floor(element.clientWidth));
+        const height = Math.max(280, Math.floor(element.clientHeight || element.clientWidth));
         const globe = new Globe(element, {
           rendererConfig: { alpha: true, antialias: true },
         })
-          .width(size)
-          .height(size)
+          .width(width)
+          .height(height)
           .backgroundColor("rgba(0,0,0,0)")
           .showAtmosphere(true)
           .atmosphereColor("#4e8b9c")
           .atmosphereAltitude(0.16)
           .showGraticules(true)
-          .pointLat((point) => asSatellitePosition(point).latDeg)
-          .pointLng((point) => asSatellitePosition(point).lngDeg)
-          .pointAltitude(
+          .polygonCapColor(() => LAND_COLOR)
+          .polygonSideColor(() => LAND_SIDE_COLOR)
+          .polygonStrokeColor(() => false)
+          .polygonAltitude(0.008)
+          .polygonCapCurvatureResolution(2)
+          .polygonsTransitionDuration(0)
+          .polygonsData(landFeaturesRef.current)
+          .objectLat((point) => asSatellitePosition(point).latDeg)
+          .objectLng((point) => asSatellitePosition(point).lngDeg)
+          .objectAltitude(
             (point) => asSatellitePosition(point).displayAltitudeEarthRadii,
           )
-          .pointColor((point) => REGIME_COLORS[asSatellitePosition(point).regime])
-          .pointRadius(0.34)
-          .pointResolution(12)
-          .pointLabel(tooltipMarkup)
-          .onPointClick((point) =>
+          .objectLabel(tooltipMarkup)
+          .onObjectClick((point) =>
             setSelectedCatalogNumber(asSatellitePosition(point).catalogNumber),
           )
-          .pointsTransitionDuration(700)
-          .pointsData(positionsRef.current)
+          .onObjectHover((point) => {
+            element.style.cursor = point ? "pointer" : "";
+          })
+          .pathPoints((segment) => segment as GroundTrackPoint[])
+          .pathPointLat((point) => (point as GroundTrackPoint).latDeg)
+          .pathPointLng((point) => (point as GroundTrackPoint).lngDeg)
+          .pathPointAlt((point) => (point as GroundTrackPoint).displayAltitudeEarthRadii)
+          .pathColor(() => TRACK_COLOR)
+          .pathStroke(0.7)
+          .pathDashLength(0.035)
+          .pathDashGap(0.018)
+          .pathTransitionDuration(0)
+          .pathsData(trackSegmentsRef.current)
+          .objectsData(positionsRef.current)
+          .globeOffset([0, -Math.round(height * GLOBE_LIFT_FRACTION)])
           .pointOfView({ lat: 18, lng: -24, altitude: 2.25 });
+
+        globe.objectThreeObject(buildObjectMesh(globe));
 
         const material = globe.globeMaterial() as unknown as GlobeMaterialControls;
         material.color.set("#102a35");
@@ -142,9 +257,16 @@ export function OrbitalGlobe() {
         globe.controls().dampingFactor = 0.08;
         globeRef.current = globe;
 
+        // The globe is square and fits whichever side of its box is shorter, so
+        // the whole sphere stays in view without the page scrolling.
         resizeObserver = new ResizeObserver(([entry]) => {
-          const nextSize = Math.max(320, Math.floor(entry.contentRect.width));
-          globe.width(nextSize).height(nextSize);
+          const box = entry.contentRect;
+          const nextWidth = Math.max(280, Math.floor(box.width));
+          const nextHeight = Math.max(280, Math.floor(box.height));
+          globe
+            .width(nextWidth)
+            .height(nextHeight)
+            .globeOffset([0, -Math.round(nextHeight * GLOBE_LIFT_FRACTION)]);
         });
         resizeObserver.observe(element);
       })
@@ -155,53 +277,70 @@ export function OrbitalGlobe() {
       resizeObserver?.disconnect();
       globeRef.current?._destructor();
       globeRef.current = null;
+      globeEntries.clear();
     };
-  }, []);
+  }, [buildObjectMesh]);
 
   useEffect(() => {
-    globeRef.current?.pointsData(positions);
-  }, [positions]);
+    selectedRef.current = activeCatalogNumber;
+    const globe = globeRef.current;
+    if (globe) globe.objectThreeObject(buildObjectMesh(globe));
+  }, [activeCatalogNumber, buildObjectMesh]);
+
+  useEffect(() => {
+    trackSegmentsRef.current = trackSegments;
+    globeRef.current?.pathsData(trackSegments);
+  }, [trackSegments]);
+
+  useEffect(() => {
+    landFeaturesRef.current = landFeatures;
+    globeRef.current?.polygonsData(landFeatures);
+  }, [landFeatures]);
 
   return (
     <div className="orbital-stage">
-      <div className="globe-frame">
-        <div
-          className="globe-canvas"
-          ref={containerRef}
-          role="img"
-          aria-label={`Rotatable 3D Earth showing ${positions.length} propagated space objects`}
-        />
-        {positions.length === 0 && !renderError ? (
-          <p className="globe-status">Propagating orbits…</p>
-        ) : null}
-        {renderError ? <p className="globe-status globe-error">{renderError}</p> : null}
-        <p className="epoch-clock measure" aria-live="off">
-          <span>Propagated for</span>
-          {observedAtUtc ? formatUtcTimestamp(observedAtUtc) : "—"}
-        </p>
-      </div>
+      <div className="globe-viewport">
+        <div className="globe-frame">
+          <div
+            className="globe-canvas"
+            ref={containerRef}
+            role="img"
+            aria-label={`Rotatable 3D Earth showing ${positions.length} propagated space objects`}
+          />
+          {positions.length === 0 && !renderError ? (
+            <p className="globe-status">Propagating orbits…</p>
+          ) : null}
+          {renderError ? (
+            <p className="globe-status globe-error">{renderError}</p>
+          ) : null}
+        </div>
 
-      <aside className="orbit-key" aria-label="Orbit regime legend">
-        <p>
-          <span className="measure">{positions.length}</span> objects in view
-        </p>
-        <ul>
-          {(Object.keys(REGIME_COLORS) as OrbitRegime[]).map((regime) => (
-            <li key={regime}>
-              <span style={{ backgroundColor: REGIME_COLORS[regime] }} />
-              <b>{regime}</b>
-              <small className="measure">
-                {positions.filter((position) => position.regime === regime).length}
-              </small>
-            </li>
-          ))}
-        </ul>
-        <p className="drag-note">Drag to turn. Scroll to move closer.</p>
-      </aside>
+        <div className="globe-rail">
+        <aside className="orbit-key" aria-label="Orbit regime legend">
+          <ul>
+            {(Object.keys(REGIME_COLORS) as OrbitRegime[]).map((regime) => (
+              <li key={regime}>
+                <span style={{ backgroundColor: REGIME_COLORS[regime] }} />
+                <b>{regime}</b>
+                <small className="measure">
+                  {positions.filter((position) => position.regime === regime).length}
+                </small>
+              </li>
+            ))}
+          </ul>
+          <p className="drag-note">Drag to turn. Click an object for its track, refreshed every 30 seconds. Altitudes exaggerated for display.</p>
+        </aside>
+
+          <p className="epoch-clock measure" aria-live="off">
+            <span>UTC</span>
+            {observedAtUtc ? formatUtcTimestamp(observedAtUtc) : "—"}
+          </p>
+        </div>
+      </div>
 
       <ObjectDetail
         positions={positions}
-        selectedCatalogNumber={selectedCatalogNumber}
+        selectedCatalogNumber={activeCatalogNumber}
         onSelect={setSelectedCatalogNumber}
       />
     </div>

@@ -6,6 +6,7 @@ import fixture from "@/fixtures/satellites.json";
 import type { SatelliteCatalogPayload } from "@/lib/celestrak";
 import type { SatelliteRecord, TleRecord } from "@/lib/propagate";
 import type { ObserverLocation, SatellitePass } from "@/lib/passes";
+import { CATALOG_RETRY_MS, createCatalogClient } from "@/lib/catalog-client";
 
 type CatalogStatus = "loading" | "live" | "fallback";
 
@@ -22,38 +23,13 @@ interface CatalogContextValue extends CatalogState {
   preview: { atUtc: Date; observer: ObserverLocation } | null;
   previewPass: (pass: SatellitePass, observer: ObserverLocation) => void;
   returnToLive: () => void;
+  refreshCatalog: () => void;
+  refreshing: boolean;
 }
 
 const fixtureRecords = fixture as TleRecord[];
 const CatalogContext = createContext<CatalogContextValue | null>(null);
-let catalogRequest: Promise<SatelliteCatalogPayload> | null = null;
-let requestedAtMs = 0;
-const REFRESH_MS = 2 * 60 * 60 * 1_000;
-
-function requestCatalog(): Promise<SatelliteCatalogPayload> {
-  if (!catalogRequest || Date.now() - requestedAtMs >= REFRESH_MS) {
-    requestedAtMs = Date.now();
-    catalogRequest = fetch("/api/tle", {
-      headers: { Accept: "application/json" },
-    }).then(async (response) => {
-      if (!response.ok) throw new Error(`Could not load satellite data (HTTP ${response.status}).`);
-      const payload = (await response.json()) as unknown;
-      if (
-        !payload ||
-        typeof payload !== "object" ||
-        (payload as { source?: unknown }).source !== "celestrak" ||
-        !Array.isArray((payload as { satellites?: unknown }).satellites)
-      ) {
-        throw new Error("Could not read the satellite data.");
-      }
-      return payload as SatelliteCatalogPayload;
-    });
-    catalogRequest.catch(() => {
-      catalogRequest = null;
-    });
-  }
-  return catalogRequest;
-}
+const requestCatalog = createCatalogClient();
 
 export function CatalogProvider({ children }: Readonly<{ children: React.ReactNode }>) {
   const [catalog, setCatalog] = useState<CatalogState>({
@@ -64,32 +40,51 @@ export function CatalogProvider({ children }: Readonly<{ children: React.ReactNo
   });
   const [selectedCatalogNumber, setSelectedCatalogNumber] = useState<string | null>(null);
   const [preview, setPreview] = useState<CatalogContextValue["preview"]>(null);
+  const [refreshing, setRefreshing] = useState(false);
+
+  const applyCatalog = useCallback((payload: SatelliteCatalogPayload) => {
+    setCatalog((current) => payload.offlineFixture && current.status === "live"
+      ? { ...current, stale: true }
+      : {
+          records: payload.satellites,
+          status: payload.offlineFixture ? "fallback" : "live",
+          fetchedAtUtc: payload.fetchedAtUtc,
+          stale: payload.stale,
+        });
+  }, []);
+  const markUnavailable = useCallback(() => {
+    setCatalog((current) => ({ ...current, stale: true, status: current.status === "live" ? "live" : "fallback" }));
+  }, []);
+  const refreshCatalog = useCallback(() => {
+    setRefreshing(true);
+    void requestCatalog(true).then(applyCatalog).catch(markUnavailable)
+      .finally(() => setRefreshing(false));
+  }, [applyCatalog, markUnavailable]);
 
   useEffect(() => {
     let active = true;
     const refresh = () => { void requestCatalog()
       .then((payload) => {
         if (!active || payload.satellites.length === 0) return;
-        setCatalog({
-          records: payload.satellites,
-          status: payload.offlineFixture ? "fallback" : "live",
-          fetchedAtUtc: payload.fetchedAtUtc,
-          stale: payload.stale,
-        });
+        applyCatalog(payload);
       })
       .catch(() => {
         if (active) {
-          setCatalog((current) => ({ ...current, stale: true, status: current.status === "live" ? "live" : "fallback" }));
+          markUnavailable();
         }
       }); };
     refresh();
-    const intervalId = window.setInterval(refresh, REFRESH_MS);
+    const intervalId = window.setInterval(refresh, CATALOG_RETRY_MS);
+    window.addEventListener("online", refresh);
+    window.addEventListener("focus", refresh);
 
     return () => {
       active = false;
       window.clearInterval(intervalId);
+      window.removeEventListener("online", refresh);
+      window.removeEventListener("focus", refresh);
     };
-  }, []);
+  }, [applyCatalog, markUnavailable]);
 
   const selectSatellite = useCallback((catalogNumber: string) => {
     setSelectedCatalogNumber(catalogNumber);
@@ -101,8 +96,8 @@ export function CatalogProvider({ children }: Readonly<{ children: React.ReactNo
   }, []);
   const returnToLive = useCallback(() => setPreview(null), []);
   const value = useMemo(
-    () => ({ ...catalog, selectedCatalogNumber, selectSatellite, preview, previewPass, returnToLive }),
-    [catalog, selectedCatalogNumber, selectSatellite, preview, previewPass, returnToLive],
+    () => ({ ...catalog, selectedCatalogNumber, selectSatellite, preview, previewPass, returnToLive, refreshCatalog, refreshing }),
+    [catalog, selectedCatalogNumber, selectSatellite, preview, previewPass, returnToLive, refreshCatalog, refreshing],
   );
   return <CatalogContext value={value}>{children}</CatalogContext>;
 }
@@ -114,7 +109,7 @@ export function useCatalog(): CatalogContextValue {
 }
 
 export function CatalogStatus() {
-  const { records, stale, status } = useCatalog();
+  const { records, stale, status, refreshCatalog, refreshing } = useCatalog();
   const label =
     status === "loading"
       ? "Loading CelesTrak data…"
@@ -125,6 +120,11 @@ export function CatalogStatus() {
   return (
     <p className="feed-state" data-status={status} aria-live="polite">
       <span aria-hidden="true" /> {label}
+      {(status === "fallback" || stale) && (
+        <button className="catalog-retry" type="button" disabled={refreshing} onClick={refreshCatalog}>
+          {refreshing ? "Retrying…" : "Retry"}
+        </button>
+      )}
     </p>
   );
 }

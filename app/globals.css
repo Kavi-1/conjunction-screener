@@ -196,6 +196,23 @@ a:hover {
   background: var(--alert);
 }
 
+.catalog-retry {
+  background: transparent;
+  border: 0;
+  color: var(--paper);
+  cursor: pointer;
+  font: inherit;
+  margin-left: 0.5rem;
+  padding: 0.3rem;
+  text-decoration: underline;
+  text-underline-offset: 0.2em;
+}
+
+.catalog-retry:disabled {
+  cursor: wait;
+  opacity: 0.6;
+}
+
 .hero {
   display: grid;
   margin-inline: auto;

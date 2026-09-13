@@ -7,6 +7,7 @@ import {
   formatElementAgeHours,
   formatUtcTimestamp,
   isStaleElementAge,
+  formatOffsetMinutes,
 } from "../lib/elements.ts";
 
 test("element age is measured in hours between two UTC instants", () => {
@@ -22,9 +23,14 @@ test("staleness is decided by the documented threshold", () => {
 });
 
 test("age formatting switches from hours to days and keeps its unit", () => {
-  assert.equal(formatElementAgeHours(-3), "0 h");
+  assert.equal(formatElementAgeHours(-3), "epoch in 3 h");
   assert.equal(formatElementAgeHours(14.4), "14 h");
   assert.equal(formatElementAgeHours(96), "4.0 d");
+});
+
+test("range plot labels use actual offsets, including clipped windows", () => {
+  assert.equal(formatOffsetMinutes("2026-09-12T12:00:00Z", "2026-09-12T12:00:00Z"), "0.0 min");
+  assert.equal(formatOffsetMinutes("2026-09-12T12:30:00Z", "2026-09-12T12:00:00Z"), "+30.0 min");
 });
 
 test("timestamps render as ISO-8601 UTC trimmed to seconds", () => {

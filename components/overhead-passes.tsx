@@ -4,11 +4,9 @@ import { useEffect, useRef, useState } from "react";
 
 import { useCatalog } from "@/components/catalog-provider";
 import { CITY_LOCATIONS, findCityLocation } from "@/lib/cities";
-import {
-  predictUpcomingPassesUtc,
-  type ObserverLocation,
-  type SatellitePass,
-} from "@/lib/passes";
+import type { ObserverLocation, SatellitePass } from "@/lib/passes";
+import type { PassWorkerRequest, PassWorkerResponse } from "@/lib/pass-messages";
+import { formatElementAgeHours, isStaleElementAge } from "@/lib/elements";
 
 type PassState = "idle" | "locating" | "city" | "calculating" | "ready";
 
@@ -20,14 +18,16 @@ const timeFormatter = new Intl.DateTimeFormat(undefined, {
 });
 
 function formatDuration(durationSeconds: number): string {
-  const minutes = Math.floor(durationSeconds / 60);
-  const seconds = Math.round(durationSeconds % 60);
+  const totalSeconds = Math.round(durationSeconds);
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
   return `${minutes}m ${seconds.toString().padStart(2, "0")}s`;
 }
 
 export function OverheadPasses() {
-  const { records } = useCatalog();
-  const timerRef = useRef<number | null>(null);
+  const { records, status: catalogStatus } = useCatalog();
+  const workerRef = useRef<Worker | null>(null);
+  const [passError, setPassError] = useState<string | null>(null);
   const [state, setState] = useState<PassState>("idle");
   const [cityQuery, setCityQuery] = useState("");
   const [cityError, setCityError] = useState<string | null>(null);
@@ -36,7 +36,7 @@ export function OverheadPasses() {
 
   useEffect(
     () => () => {
-      if (timerRef.current !== null) window.clearTimeout(timerRef.current);
+      workerRef.current?.terminate();
     },
     [],
   );
@@ -45,11 +45,28 @@ export function OverheadPasses() {
     setObserver(location);
     setState("calculating");
     setCityError(null);
-    timerRef.current = window.setTimeout(() => {
-      setPasses(predictUpcomingPassesUtc(records, location, new Date(), 5));
+    setPassError(null);
+    setPasses([]);
+    workerRef.current?.terminate();
+    const worker = new Worker(new URL("../workers/passes.worker.ts", import.meta.url));
+    workerRef.current = worker;
+    worker.onmessage = (event: MessageEvent<PassWorkerResponse>) => {
+      if (workerRef.current !== worker) return;
+      if (event.data.type === "complete") setPasses(event.data.passes);
+      else setPassError(event.data.message);
       setState("ready");
-      timerRef.current = null;
-    }, 0);
+      worker.terminate();
+      workerRef.current = null;
+    };
+    worker.onerror = () => {
+      if (workerRef.current !== worker) return;
+      setPassError("Pass prediction stopped unexpectedly. Please retry.");
+      setState("ready");
+      worker.terminate();
+      workerRef.current = null;
+    };
+    const request: PassWorkerRequest = { records, observer: location, startUtc: new Date().toISOString() };
+    worker.postMessage(request);
   };
 
   const requestLocation = () => {
@@ -76,7 +93,7 @@ export function OverheadPasses() {
     event.preventDefault();
     const location = findCityLocation(cityQuery);
     if (!location) {
-      setCityError("Choose one of the listed cities.");
+      setCityError("Pick a city from the list.");
       return;
     }
     calculate(location);
@@ -86,11 +103,11 @@ export function OverheadPasses() {
     <section className="overhead" aria-labelledby="overhead-title">
       <div className="overhead-heading">
         <div>
-          <h2 id="overhead-title">What passes overhead?</h2>
-          <p>Next 24 hours, above your local horizon.</p>
+          <h2 id="overhead-title">Passes overhead</h2>
+          <p>Next 24 hours. Geometric passes above the horizon, not guaranteed visible sightings. Brief grazing passes may be missed.</p>
         </div>
         {state === "idle" || state === "ready" ? (
-          <button type="button" onClick={requestLocation}>
+          <button type="button" disabled={catalogStatus === "loading"} onClick={requestLocation}>
             Use my location
           </button>
         ) : null}
@@ -98,19 +115,19 @@ export function OverheadPasses() {
 
       {state === "locating" ? (
         <p className="pass-status" role="status">
-          Waiting for location permission…
+          Waiting for permission…
         </p>
       ) : null}
 
       {state === "calculating" ? (
         <p className="pass-status" role="status">
-          Calculating horizon crossings…
+          Calculating…
         </p>
       ) : null}
 
       {state === "city" ? (
         <form className="city-form" onSubmit={submitCity}>
-          <label htmlFor="city">Location access unavailable. Choose a city.</label>
+          <label htmlFor="city">No location. Pick a city.</label>
           <div>
             <input
               id="city"
@@ -134,16 +151,17 @@ export function OverheadPasses() {
       {state === "ready" ? (
         <div className="pass-results">
           <p>
-            Near <strong>{observer?.label}</strong>. Times shown in your device’s time
-            zone.
+            <strong>{observer?.label}</strong>, times in your browser’s timezone.
           </p>
-          {passes.length ? (
+          {passError ? <p role="alert">{passError}</p> : passes.length ? (
             <ol>
               {passes.map((pass) => (
                 <li key={`${pass.catalogNumber}-${pass.startUtc.toISOString()}`}>
                   <div>
                     <strong>{pass.objectName}</strong>
                     <span className="measure">NORAD {pass.catalogNumber}</span>
+                    <span>Elements {formatElementAgeHours(pass.elementAgeHours)}{isStaleElementAge(pass.elementAgeHours) ? ", stale" : ""}</span>
+                    {(pass.clippedStart || pass.clippedEnd) && <span>Partial pass at the prediction-window boundary; duration and peak cover only this window.</span>}
                   </div>
                   <dl>
                     <div>
@@ -167,7 +185,7 @@ export function OverheadPasses() {
               ))}
             </ol>
           ) : (
-            <p>No passes from this catalog cross the horizon in the next 24 hours.</p>
+            <p>Nothing crosses your horizon in the next 24 hours.</p>
           )}
         </div>
       ) : null}

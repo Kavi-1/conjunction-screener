@@ -17,10 +17,14 @@ export function isStaleElementAge(ageHours: number): boolean {
 
 /** Renders an age with its unit attached, in hours up to two days and days beyond. */
 export function formatElementAgeHours(ageHours: number): string {
-  // A freshly published element set can carry an epoch slightly ahead of now.
-  if (ageHours <= 0) return "0 h";
+  if (ageHours < 0) return `epoch in ${formatElementAgeHours(-ageHours)}`;
   if (ageHours < 48) return `${Math.round(ageHours)} h`;
   return `${(ageHours / 24).toFixed(1)} d`;
+}
+
+export function formatOffsetMinutes(atUtc: string, referenceUtc: string): string {
+  const minutes = (Date.parse(atUtc) - Date.parse(referenceUtc)) / 60_000;
+  return `${minutes > 0 ? "+" : minutes < 0 ? "−" : ""}${Math.abs(minutes).toFixed(1)} min`;
 }
 
 /** ISO-8601 UTC trimmed to seconds, e.g. "2026-09-12 14:03:22Z". */

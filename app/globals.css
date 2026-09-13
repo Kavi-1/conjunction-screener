@@ -223,6 +223,8 @@ a:hover {
 
 .intro {
   max-width: 44rem;
+  min-width: 0;
+  width: 100%;
   position: relative;
   z-index: 2;
 }
@@ -913,7 +915,7 @@ h1 {
 .app-shell .intro:has(.overhead[data-active="true"]) {
   mask-image: none;
   max-height: none;
-  overflow-x: clip;
+  overflow-x: visible;
   overflow-y: visible;
 }
 
@@ -959,7 +961,7 @@ h1 {
        as a rendering fault. */
     mask-image: linear-gradient(to bottom, #000 calc(100% - 1.75rem), transparent);
     max-height: calc(100% - var(--object-band));
-    max-width: 20rem;
+    max-width: clamp(20rem, 28vw, 24rem);
     position: relative;
     z-index: 2;
   }

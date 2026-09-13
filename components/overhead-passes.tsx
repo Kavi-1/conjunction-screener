@@ -234,7 +234,6 @@ export function OverheadPasses() {
           ) : (
             <p>No passes found in the next 24 hours.</p>
           )}
-          {!passError && <p>You may not be able to see every pass. Short passes can be missed.</p>}
         </div>
       ) : null}
     </section>

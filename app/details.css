@@ -112,6 +112,11 @@
   margin: 0;
 }
 
+.overhead-actions {
+  display: flex;
+  gap: 0.45rem;
+}
+
 .overhead-heading p,
 .pass-results > p,
 .pass-status,
@@ -137,6 +142,15 @@
 .overhead button:hover {
   border-color: var(--signal);
   color: var(--signal);
+}
+
+.overhead .overhead-close {
+  border-color: transparent;
+  color: var(--muted);
+}
+
+.overhead[data-active="true"] {
+  margin-top: 0;
 }
 
 .pass-status {
@@ -181,7 +195,6 @@
 }
 
 .pass-results ol {
-  border-bottom: 1px solid var(--line);
   list-style: none;
   margin: 0.75rem 0 0;
   padding: 0;
@@ -189,36 +202,56 @@
 
 .pass-results li {
   border-top: 1px solid var(--line);
-  padding: 0.7rem 0;
 }
 
-.pass-results li > div:first-child {
-  align-items: baseline;
-  display: flex;
-  gap: 0.6rem;
-  justify-content: space-between;
-}
-
-.pass-results li > div:first-child span {
-  color: var(--muted);
-  font-size: 0.68rem;
-}
-
-.pass-results dl {
+.overhead .pass-result {
+  align-items: center;
+  border: 0;
+  color: var(--paper);
   display: grid;
-  gap: 0.5rem;
-  grid-template-columns: 1.5fr 1fr 0.8fr;
-  margin: 0.55rem 0 0;
+  gap: 0.75rem;
+  grid-template-columns: minmax(0, 1fr) auto;
+  padding: 0.55rem 0;
+  text-align: left;
+  width: 100%;
 }
 
-.pass-results dt {
+.overhead .pass-result:hover,
+.overhead .pass-result[aria-pressed="true"] {
+  color: var(--signal);
+}
+
+.overhead .pass-result:hover strong,
+.overhead .pass-result[aria-pressed="true"] strong {
+  color: var(--signal);
+}
+
+.pass-result-object,
+.pass-result-measures {
+  display: grid;
+  min-width: 0;
+}
+
+.pass-result-object strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pass-result small {
   color: var(--muted);
-  font-size: 0.68rem;
+  font-size: 0.66rem;
+  font-weight: 400;
+  line-height: 1.4;
 }
 
-.pass-results dd {
+.pass-result-measures {
+  justify-items: end;
+}
+
+.pass-result-measures time {
   font-size: 0.72rem;
-  margin: 0.18rem 0 0;
+  white-space: nowrap;
 }
 
 @media (max-width: 640px) {
@@ -226,8 +259,8 @@
     align-items: start;
   }
 
-  .pass-results dl {
-    grid-template-columns: 1.35fr 1fr 0.75fr;
+  .overhead .pass-result {
+    gap: 0.5rem;
   }
 }
 

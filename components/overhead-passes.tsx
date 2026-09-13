@@ -25,7 +25,12 @@ function formatDuration(durationSeconds: number): string {
 }
 
 export function OverheadPasses() {
-  const { records, status: catalogStatus } = useCatalog();
+  const {
+    records,
+    status: catalogStatus,
+    selectedCatalogNumber,
+    selectSatellite,
+  } = useCatalog();
   const workerRef = useRef<Worker | null>(null);
   const [passError, setPassError] = useState<string | null>(null);
   const [state, setState] = useState<PassState>("idle");
@@ -99,18 +104,39 @@ export function OverheadPasses() {
     calculate(location);
   };
 
+  const closePasses = () => {
+    workerRef.current?.terminate();
+    workerRef.current = null;
+    setState("idle");
+    setObserver(null);
+    setPasses([]);
+    setPassError(null);
+    setCityError(null);
+  };
+
   return (
-    <section className="overhead" aria-labelledby="overhead-title">
+    <section
+      className="overhead"
+      aria-labelledby="overhead-title"
+      data-active={state !== "idle"}
+    >
       <div className="overhead-heading">
         <div>
           <h2 id="overhead-title">Upcoming passes</h2>
           <p>Find passes near you in the next 24 hours.</p>
         </div>
-        {state === "idle" || state === "ready" ? (
-          <button type="button" disabled={catalogStatus === "loading"} onClick={requestLocation}>
-            Use my location
-          </button>
-        ) : null}
+        <div className="overhead-actions">
+          {state === "idle" || state === "ready" ? (
+            <button type="button" disabled={catalogStatus === "loading"} onClick={requestLocation}>
+              {state === "ready" ? "Refresh" : "Use my location"}
+            </button>
+          ) : null}
+          {state !== "idle" ? (
+            <button className="overhead-close" type="button" onClick={closePasses}>
+              Close
+            </button>
+          ) : null}
+        </div>
       </div>
 
       {state === "locating" ? (
@@ -157,30 +183,29 @@ export function OverheadPasses() {
             <ol>
               {passes.map((pass) => (
                 <li key={`${pass.catalogNumber}-${pass.startUtc.toISOString()}`}>
-                  <div>
-                    <strong>{pass.objectName}</strong>
-                    <span className="measure">NORAD {pass.catalogNumber}</span>
-                    <span>Orbit data age: {formatElementAgeHours(pass.elementAgeHours)}{isStaleElementAge(pass.elementAgeHours) ? ", old data" : ""}</span>
-                    {(pass.clippedStart || pass.clippedEnd) && <span>Only the part within these 24 hours is shown.</span>}
-                  </div>
-                  <dl>
-                    <div>
-                      <dt>Starts</dt>
-                      <dd>
-                        <time dateTime={pass.startUtc.toISOString()}>
-                          {timeFormatter.format(pass.startUtc)}
-                        </time>
-                      </dd>
-                    </div>
-                    <div>
-                      <dt>Max elevation</dt>
-                      <dd className="measure">{pass.maxElevationDeg.toFixed(0)}°</dd>
-                    </div>
-                    <div>
-                      <dt>Duration</dt>
-                      <dd className="measure">{formatDuration(pass.durationSeconds)}</dd>
-                    </div>
-                  </dl>
+                  <button
+                    className="pass-result"
+                    type="button"
+                    aria-pressed={selectedCatalogNumber === pass.catalogNumber}
+                    onClick={() => selectSatellite(pass.catalogNumber)}
+                  >
+                    <span className="pass-result-object">
+                      <strong>{pass.objectName}</strong>
+                      <small>
+                        NORAD {pass.catalogNumber} · data {formatElementAgeHours(pass.elementAgeHours)}
+                        {isStaleElementAge(pass.elementAgeHours) ? ", old" : ""}
+                      </small>
+                    </span>
+                    <span className="pass-result-measures">
+                      <time dateTime={pass.startUtc.toISOString()}>
+                        {timeFormatter.format(pass.startUtc)}
+                      </time>
+                      <small className="measure">
+                        {pass.maxElevationDeg.toFixed(0)}° · {formatDuration(pass.durationSeconds)}
+                        {(pass.clippedStart || pass.clippedEnd) ? " · partial" : ""}
+                      </small>
+                    </span>
+                  </button>
                 </li>
               ))}
             </ol>

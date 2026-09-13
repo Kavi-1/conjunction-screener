@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useContext, useEffect, useMemo, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 
 import fixture from "@/fixtures/satellites.json";
 import type { SatelliteCatalogPayload } from "@/lib/celestrak";
@@ -8,11 +8,16 @@ import type { SatelliteRecord, TleRecord } from "@/lib/propagate";
 
 type CatalogStatus = "loading" | "live" | "fallback";
 
-interface CatalogContextValue {
+interface CatalogState {
   records: SatelliteRecord[];
   status: CatalogStatus;
   fetchedAtUtc: string | null;
   stale: boolean;
+}
+
+interface CatalogContextValue extends CatalogState {
+  selectedCatalogNumber: string | null;
+  selectSatellite: (catalogNumber: string) => void;
 }
 
 const fixtureRecords = fixture as TleRecord[];
@@ -47,12 +52,13 @@ function requestCatalog(): Promise<SatelliteCatalogPayload> {
 }
 
 export function CatalogProvider({ children }: Readonly<{ children: React.ReactNode }>) {
-  const [catalog, setCatalog] = useState<CatalogContextValue>({
+  const [catalog, setCatalog] = useState<CatalogState>({
     records: fixtureRecords,
     status: "loading",
     fetchedAtUtc: null,
     stale: false,
   });
+  const [selectedCatalogNumber, setSelectedCatalogNumber] = useState<string | null>(null);
 
   useEffect(() => {
     let active = true;
@@ -80,7 +86,13 @@ export function CatalogProvider({ children }: Readonly<{ children: React.ReactNo
     };
   }, []);
 
-  const value = useMemo(() => catalog, [catalog]);
+  const selectSatellite = useCallback((catalogNumber: string) => {
+    setSelectedCatalogNumber(catalogNumber);
+  }, []);
+  const value = useMemo(
+    () => ({ ...catalog, selectedCatalogNumber, selectSatellite }),
+    [catalog, selectedCatalogNumber, selectSatellite],
+  );
   return <CatalogContext value={value}>{children}</CatalogContext>;
 }
 

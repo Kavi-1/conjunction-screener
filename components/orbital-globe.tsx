@@ -79,7 +79,7 @@ function tooltipMarkup(point: object): string {
 }
 
 export function OrbitalGlobe() {
-  const { records } = useCatalog();
+  const { records, selectedCatalogNumber, selectSatellite } = useCatalog();
   const landFeatures = useLandPolygons();
   const landFeaturesRef = useRef<LandFeature[]>([]);
   const trackSegmentsRef = useRef<GroundTrackPoint[][]>([]);
@@ -93,9 +93,6 @@ export function OrbitalGlobe() {
   const globeEntriesRef = useRef(new Map<string, SatellitePosition>());
   const selectedRef = useRef<string | null>(null);
   const [positions, setPositions] = useState<SatellitePosition[]>([]);
-  const [selectedCatalogNumber, setSelectedCatalogNumber] = useState<string | null>(
-    null,
-  );
   const [observedAtUtc, setObservedAtUtc] = useState<Date | null>(null);
   const [renderError, setRenderError] = useState<string | null>(null);
 
@@ -223,7 +220,7 @@ export function OrbitalGlobe() {
           )
           .objectLabel(tooltipMarkup)
           .onObjectClick((point) =>
-            setSelectedCatalogNumber(asSatellitePosition(point).catalogNumber),
+            selectSatellite(asSatellitePosition(point).catalogNumber),
           )
           .onObjectHover((point) => {
             element.style.cursor = point ? "pointer" : "";
@@ -279,12 +276,30 @@ export function OrbitalGlobe() {
       globeRef.current = null;
       globeEntries.clear();
     };
-  }, [buildObjectMesh]);
+  }, [buildObjectMesh, selectSatellite]);
 
   useEffect(() => {
     selectedRef.current = activeCatalogNumber;
     const globe = globeRef.current;
-    if (globe) globe.objectThreeObject(buildObjectMesh(globe));
+    if (globe) {
+      globe.objectThreeObject(buildObjectMesh(globe));
+      const selected = positionsRef.current.find(
+        (position) => position.catalogNumber === activeCatalogNumber,
+      );
+      if (selected) {
+        const transitionMs = window.matchMedia("(prefers-reduced-motion: reduce)").matches
+          ? 0
+          : 650;
+        globe.pointOfView(
+          {
+            lat: selected.latDeg,
+            lng: selected.lngDeg,
+            altitude: globe.pointOfView().altitude,
+          },
+          transitionMs,
+        );
+      }
+    }
   }, [activeCatalogNumber, buildObjectMesh]);
 
   useEffect(() => {
@@ -341,7 +356,7 @@ export function OrbitalGlobe() {
       <ObjectDetail
         positions={positions}
         selectedCatalogNumber={activeCatalogNumber}
-        onSelect={setSelectedCatalogNumber}
+        onSelect={selectSatellite}
       />
     </div>
   );

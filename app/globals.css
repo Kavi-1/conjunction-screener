@@ -888,6 +888,21 @@ h1 {
   scrollbar-gutter: stable;
 }
 
+/* Once location tools are active, the left side becomes a focused pass picker.
+   Removing the static overview also removes the tall nested scroll region that
+   otherwise sits over the globe and captures wheel gestures. */
+.app-shell .intro:has(.overhead[data-active="true"]) {
+  mask-image: none;
+  max-height: none;
+  overflow-y: visible;
+}
+
+.app-shell .intro:has(.overhead[data-active="true"]) > h1,
+.app-shell .intro:has(.overhead[data-active="true"]) > .readout,
+.app-shell .intro:has(.overhead[data-active="true"]) > .readout-note {
+  display: none;
+}
+
 /* Auto inline margins make a flex child shrink-wrap its content, so the header
    was as wide as whatever that view happened to put in it and the nav moved
    between tabs. Every band spans the shell and centres its own content. */

@@ -96,7 +96,9 @@
   border-top: 1px solid var(--line-strong);
   margin-top: 2.3rem;
   max-width: 34rem;
+  min-width: 0;
   padding-top: 0.9rem;
+  width: 100%;
 }
 
 .overhead-heading {
@@ -186,6 +188,7 @@
 }
 
 .pass-results {
+  min-width: 0;
   padding-top: 0.6rem;
 }
 
@@ -202,6 +205,7 @@
 
 .pass-results li {
   border-top: 1px solid var(--line);
+  min-width: 0;
 }
 
 .overhead .pass-result {

@@ -564,6 +564,7 @@ h1 {
 
 .app-shell .intro {
   min-height: 0;
+  overflow-x: hidden;
   overflow-y: auto;
   overscroll-behavior: contain;
   scrollbar-width: thin;
@@ -743,6 +744,7 @@ h1 {
     flex-direction: column;
     gap: 0;
     mask-image: linear-gradient(to bottom, #000 calc(100% - 1.5rem), transparent);
+    overflow-x: hidden;
     overflow-y: auto;
     overscroll-behavior: contain;
     scrollbar-gutter: stable;
@@ -894,6 +896,7 @@ h1 {
 .app-shell .intro:has(.overhead[data-active="true"]) {
   mask-image: none;
   max-height: none;
+  overflow-x: clip;
   overflow-y: visible;
 }
 

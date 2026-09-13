@@ -73,7 +73,7 @@ function tooltipMarkup(point: object): string {
     `<strong>${escapeHtml(satellite.name)}</strong>`,
     `<span>NORAD ${escapeHtml(satellite.catalogNumber)}, ${escapeHtml(satellite.internationalDesignator)}</span>`,
     `<span>${satellite.regime}, ${Math.round(satellite.altitudeKm).toLocaleString("en-US")} km, ${satellite.velocityKmS.toFixed(2)} km/s</span>`,
-    `<span${ageClass}>Elements ${formatElementAgeHours(satellite.elementAgeHours)} old</span>`,
+    `<span${ageClass}>Orbit data age: ${formatElementAgeHours(satellite.elementAgeHours)}</span>`,
     "</div>",
   ].join("");
 }
@@ -270,7 +270,7 @@ export function OrbitalGlobe() {
         });
         resizeObserver.observe(element);
       })
-      .catch(() => setRenderError("This browser could not start the 3D view."));
+      .catch(() => setRenderError("Could not load the globe. Try reloading the page."));
 
     return () => {
       cancelled = true;
@@ -305,10 +305,10 @@ export function OrbitalGlobe() {
             className="globe-canvas"
             ref={containerRef}
             role="img"
-            aria-label={`Rotatable 3D Earth showing ${positions.length} propagated space objects`}
+            aria-label={`3D globe showing ${positions.length} tracked objects`}
           />
           {positions.length === 0 && !renderError ? (
-            <p className="globe-status">Propagating orbits…</p>
+            <p className="globe-status">Calculating positions…</p>
           ) : null}
           {renderError ? (
             <p className="globe-status globe-error">{renderError}</p>
@@ -328,7 +328,7 @@ export function OrbitalGlobe() {
               </li>
             ))}
           </ul>
-          <p className="drag-note">Drag to turn. Click an object for its track, refreshed every 30 seconds. Altitudes exaggerated for display.</p>
+          <p className="drag-note">Drag to rotate. Select an object to see its path. Paths update every 30 seconds. Heights are not to scale.</p>
         </aside>
 
           <p className="epoch-clock measure" aria-live="off">

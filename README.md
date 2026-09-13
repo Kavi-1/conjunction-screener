@@ -1,33 +1,33 @@
 # Conjunction Screener
 
-I built this to visualize satellite orbits, predict overhead passes, and screen for close approaches. It also replays the 2009 Iridium–Cosmos collision and displays asteroid approaches published by NASA JPL.
+I built this to track satellites, find passes overhead, and check when two objects might come close. It also replays the 2009 Iridium–Cosmos collision and shows asteroid predictions from NASA JPL.
 
-I use Next.js, TypeScript, and globe.gl/Three.js for the interface, with satellite.js for SGP4 orbit propagation.
+I used Next.js, TypeScript, and globe.gl/Three.js for the interface. satellite.js handles SGP4 orbit calculations.
 
 ## How it works
 
-My screening pipeline runs in a Web Worker:
+For satellite screening, I:
 
-1. Sample each satellite’s predicted positions once and reuse them.
-2. Filter pairs with separated radial ranges.
-3. Filter pairs with separated trajectory bounding boxes.
-4. Refine close encounters in time and report separation, relative speed, and element age.
+1. Calculate positions with SGP4 and reuse them between pairs.
+2. Filter out pairs whose orbit heights are too far apart.
+3. Compare bounding boxes around their predicted paths.
+4. Find closest approach and report the time, distance, relative speed, and orbit data age.
 
-The filters allow for travel between samples. Pass prediction also runs off the main thread.
+Both filters allow for movement between samples. Screening and pass prediction run in Web Workers so they do not block the page.
 
-By default, I screen the freshest 300 low-Earth-orbit objects over 24 hours at a 10 km threshold. A test starting September 12, 2026 at 12:00 UTC reduced 44,850 pairs to 41,867 after radial filtering and 21,015 after path filtering. Counts vary by catalog.
+The default checks 300 low-Earth-orbit objects over 24 hours, with a 10 km distance limit. In a test starting September 12, 2026 at 12:00 UTC, the filters reduced 44,850 pairs to 41,867, then 21,015. Counts depend on the catalog.
 
-## Validation
+## Checks
 
-- Three official SGP4 reference cases, nine positions: maximum difference **0.004548 km** through the app’s timestamp handling. This is a subset, not the full verification suite.
-- [2009 replay](https://celestrak.org/events/collision/): computed closest approach at **16:55:59.796 UTC**, versus SOCRATES’ **16:55:59.806 UTC** prediction: **−0.010 s**. This compares predictions, not measured impact timing.
-- Regression tests retain real encounters previously lost by the filters.
+- Three SGP4 reference cases, nine positions: maximum difference **0.004548 km**. This checks part of the reference suite, not real-world position accuracy.
+- [2009 replay](https://celestrak.org/events/collision/): **16:55:59.796 UTC**, compared with SOCRATES’ prediction of **16:55:59.806 UTC**. Difference: **−0.010 s**. Neither is a measured collision time.
+- Regression tests check that the filters keep real close approaches they previously missed.
 
 ## Data and limitations
 
-[CelesTrak](https://celestrak.org/NORAD/documentation/gp-data-formats.php), a nonprofit mirroring the US Space Force public catalog, supplies satellite elements. [NASA JPL CNEOS](https://ssd-api.jpl.nasa.gov/doc/cad.html) supplies published asteroid approaches. Server routes cache both feeds; satellite outages use labeled offline fixtures.
+[CelesTrak](https://celestrak.org/NORAD/documentation/gp-data-formats.php), a nonprofit that mirrors the US Space Force public catalog, provides satellite orbit data. [NASA JPL CNEOS](https://ssd-api.jpl.nasa.gov/doc/cad.html) provides the asteroid predictions. Both feeds are cached. If satellite data is unavailable, the app clearly labels its saved demo data.
 
-This is educational, not operational conjunction assessment. Older elements lose accuracy, sampling can miss encounters, and I do not compute collision probabilities.
+I built this for learning, not collision avoidance. Old orbit data can be off by kilometers, and sampling can miss encounters. I do not calculate collision probabilities.
 
 ## Run locally
 

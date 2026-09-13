@@ -42,20 +42,20 @@ export function ElementReadout() {
           <dd className="measure">{records.length}</dd>
         </div>
         <div>
-          <dt>Oldest elements</dt>
+          <dt>Oldest orbit data</dt>
           <dd className="measure" data-stale={stale}>
             {ageHours === null ? "—" : formatElementAgeHours(ageHours)}
           </dd>
         </div>
         <div>
-          <dt>Propagation</dt>
+          <dt>Orbit model</dt>
           <dd className="measure">SGP4/SDP4</dd>
         </div>
       </dl>
       {stale ? (
         <p className="readout-note">
-          Older than {STALE_ELEMENT_AGE_HOURS} hours. These positions can be wrong
-          by kilometers.
+          Some orbit data is over {STALE_ELEMENT_AGE_HOURS} hours old.
+          Positions may be off by kilometers.
         </p>
       ) : null}
     </>

@@ -5,7 +5,7 @@ import { SiteHeader } from "@/components/site-header";
 
 export const metadata: Metadata = {
   title: "Close approaches — Conjunction Screener",
-  description: "Browser-computed satellite conjunction screening using SGP4.",
+  description: "Check satellite close approaches and view NASA JPL asteroid predictions.",
 };
 
 export default function ApproachesPage() {
@@ -17,26 +17,26 @@ export default function ApproachesPage() {
       </section>
       <ApproachesTabs />
       <details className="screen-controls">
-        <summary>How the satellite calculation works</summary>
-        <p>Each object is propagated once at each sample time using SGP4. A radial
-          envelope filter removes widely separated orbits, then bounding boxes
-          around short trajectory sections remove separated paths. Both filters
-          allow for between-sample travel under a 12 km/s per-object speed bound.
-          The remaining pairs are scanned for local distance minima and refined
-          in time. Cached positions keep this in a browser worker; the interface
-          stays responsive. No covariance data or collision probability is computed.</p>
+        <summary>How it works</summary>
+        <p>SGP4 calculates the positions. Filters check orbit heights and path
+          bounds to rule out distant pairs. They allow for movement between
+          samples, assuming a maximum speed of 12 km/s per object. The remaining
+          pairs are checked more closely to find when they are nearest.
+          Repeat encounters are included. The calculation runs in a Web Worker.</p>
+        <p>Sampling can miss close approaches. Orbit uncertainty and collision
+          probability are not calculated.</p>
       </details>
       <footer className="site-footer">
         <p>
           Satellite data from{" "}
           <a href="https://celestrak.org" rel="noreferrer noopener" target="_blank">
-            Celestrak
+            CelesTrak
           </a>
           . Asteroid data from{" "}
           <a href="https://cneos.jpl.nasa.gov" rel="noreferrer noopener" target="_blank">
             NASA JPL CNEOS
           </a>
-          . Not for operational use.
+          . For learning, not collision avoidance.
         </p>
       </footer>
     </main>

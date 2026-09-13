@@ -12,7 +12,7 @@ export default function HomePage() {
 
         <section className="hero" id="top" aria-labelledby="page-title">
           <div className="intro">
-            <h1 id="page-title">Earth is never alone.</h1>
+            <h1 id="page-title">Satellites in orbit</h1>
             <ElementReadout />
             <OverheadPasses />
           </div>
@@ -22,12 +22,12 @@ export default function HomePage() {
 
         <footer className="site-footer">
           <p>
-            Elements from{" "}
+            Orbit data from{" "}
             <a href="https://celestrak.org" rel="noreferrer noopener" target="_blank">
-              Celestrak
+              CelesTrak
             </a>
-            , a nonprofit that mirrors the public satellite catalog released by the
-            US Space Force. Not for operational use.
+            , a nonprofit that mirrors the US Space Force public catalog.
+            For learning, not collision avoidance.
           </p>
         </footer>
       </main>

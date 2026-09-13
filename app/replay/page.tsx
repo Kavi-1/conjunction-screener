@@ -9,7 +9,7 @@ import { verifySgp4Subset } from "@/lib/verification";
 
 export const metadata: Metadata = {
   title: "2009 collision replay — Conjunction Screener",
-  description: "Replay the Iridium 33 and Cosmos 2251 collision from archived TLEs.",
+  description: "Replay the 2009 Iridium 33 and Cosmos 2251 collision using pre-collision orbit data.",
 };
 
 export default function ReplayPage() {
@@ -21,27 +21,27 @@ export default function ReplayPage() {
       <section className="page-intro">
         <h1>2009 collision replay</h1>
         <p>
-          10 February 2009, over northern Siberia. These are the last element sets
-          published for Iridium 33 and the dead Cosmos 2251 before they met.
+          Iridium 33 and Cosmos 2251 collided on 10 February 2009.
+          This replay uses their pre-collision orbit data.
         </p>
       </section>
       <CollisionReplay validation={validation} />
-      <p>SGP4 wiring check: {verification.caseCount} official Vallado/Celestrak cases,
-        {" "}{verification.sampleCount} sample positions. Maximum position difference through
-        the app’s millisecond Date path: {verification.maxPositionErrorKm.toFixed(6)} km.
-        This is a reference-vector subset, not the full suite or a measure of real-world orbit accuracy.
+      <p>SGP4 tests: {verification.caseCount} reference cases, {verification.sampleCount} positions.
+        Maximum difference: {verification.maxPositionErrorKm.toFixed(6)} km.
+        These tests cover part of the reference suite. They check the code,
+        not the accuracy of live positions.
       </p>
       <footer className="site-footer">
         <p>
-          Archived elements from{" "}
+          Historical orbit data from{" "}
           <a
             href="https://celestrak.org/events/collision/"
             rel="noreferrer noopener"
             target="_blank"
           >
-            Celestrak
+            CelesTrak
           </a>
-          . Not for operational use.
+          . For learning, not collision avoidance.
         </p>
       </footer>
     </main>

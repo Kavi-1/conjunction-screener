@@ -39,7 +39,7 @@ export function ObjectDetail({
           </p>
         </div>
         <div className="object-picker">
-          <label htmlFor="object-select">Pick another</label>
+          <label htmlFor="object-select">Choose an object</label>
           <select
             id="object-select"
             value={selected.catalogNumber}
@@ -60,7 +60,7 @@ export function ObjectDetail({
           <dd className="measure">{selected.altitudeKm.toFixed(0)} km</dd>
         </div>
         <div>
-          <dt>Velocity</dt>
+          <dt>Speed</dt>
           <dd className="measure">{selected.velocityKmS.toFixed(2)} km/s</dd>
         </div>
         <div>
@@ -68,7 +68,7 @@ export function ObjectDetail({
           <dd className="measure">{selected.orbitalPeriodMinutes.toFixed(1)} min</dd>
         </div>
         <div>
-          <dt>Element epoch</dt>
+          <dt>Orbit epoch (UTC)</dt>
           <dd className="measure">
             <time dateTime={selected.elementEpochUtc.toISOString()}>
               {formatUtcTimestamp(selected.elementEpochUtc)}
@@ -76,7 +76,7 @@ export function ObjectDetail({
           </dd>
         </div>
         <div>
-          <dt>Element age</dt>
+          <dt>Orbit data age</dt>
           <dd className="measure" data-stale={stale}>
             {formatElementAgeHours(selected.elementAgeHours)}
           </dd>
@@ -84,14 +84,13 @@ export function ObjectDetail({
       </dl>
 
       <p className="track-note">
-        <span aria-hidden="true" /> Its path over the next{" "}
-        {selected.orbitalPeriodMinutes.toFixed(0)} minutes. It drifts west as Earth
-        turns underneath.
+        <span aria-hidden="true" /> Predicted path for the next{" "}
+        {selected.orbitalPeriodMinutes.toFixed(0)} minutes.
       </p>
 
       {stale ? (
         <p className="object-inspector-warning">
-          These elements are old enough to put this position off by kilometers.
+          Old orbit data. This position may be off by kilometers.
         </p>
       ) : null}
     </section>

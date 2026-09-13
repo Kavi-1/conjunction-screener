@@ -20,10 +20,10 @@ export function AsteroidApproaches() {
     let active = true;
     void fetch("/api/neo", { headers: { Accept: "application/json" } })
       .then(async (response) => {
-        if (!response.ok) throw new Error(`NASA JPL route returned ${response.status}`);
+        if (!response.ok) throw new Error(`Could not load NASA JPL data (HTTP ${response.status}).`);
         const next = (await response.json()) as NeoApproachPayload;
         if (next.source !== "nasa-jpl-cneos" || !Array.isArray(next.approaches)) {
-          throw new Error("NASA JPL route returned an invalid response");
+          throw new Error("Could not read the NASA JPL data.");
         }
         if (active) {
           setPayload(next);
@@ -50,15 +50,15 @@ export function AsteroidApproaches() {
   return (
     <section className="screen-workspace" aria-label="Asteroid close approaches">
       <div className="asteroid-heading">
-        <p>Published by NASA JPL CNEOS, not computed here. Next 60 days, within 0.05 au of Earth’s center.</p>
+        <p>Predictions from NASA JPL CNEOS. Next 60 days, within 0.05 au of Earth’s center.</p>
         {payload && (
           <span className="measure">
             {payload.approaches.length} approaches{payload.stale ? ", cached" : ""}
           </span>
         )}
       </div>
-      {payload && <p className="screen-state">Retrieved {formatUtcTimestamp(new Date(payload.fetchedAtUtc))}{payload.stale ? "; refresh unavailable, showing cached data" : ""}.</p>}
-      {!payload && !error && <p className="screen-state">Loading NASA JPL approaches…</p>}
+      {payload && <p className="screen-state">Fetched {formatUtcTimestamp(new Date(payload.fetchedAtUtc))}{payload.stale ? ". Refresh failed; showing cached data" : ""}.</p>}
+      {!payload && !error && <p className="screen-state">Loading asteroid data…</p>}
       {error && <p className="screen-error" role="alert">{error}</p>}
       {payload && rows.length === 0 && <p className="empty-results">NASA JPL reports no matching approaches.</p>}
       {rows.length > 0 && (
@@ -66,7 +66,7 @@ export function AsteroidApproaches() {
           rows={rows}
           selectedId={selected?.id ?? null}
           tcaHeading="Closest approach (TDB)"
-          auxiliaryHeading="Estimated size"
+          auxiliaryHeading="Diameter"
           onSelect={(row) => setSelected(payload?.approaches.find((approach) => approach.id === row.id) ?? null)}
         />
       )}
@@ -74,11 +74,12 @@ export function AsteroidApproaches() {
         <ApproachDetail label={selected.name}>
           <h3 className="detail-heading">{selected.name}</h3>
           <dl className="asteroid-detail-grid">
-            <div><dt>Nominal miss</dt><dd className="measure">{distanceLabel(selected.missDistanceKm)}</dd></div>
-            <div><dt>3σ distance interval</dt><dd className="measure">{distanceLabel(selected.minimumDistanceKm)} – {distanceLabel(selected.maximumDistanceKm)}</dd></div>
-            <div><dt>3σ time uncertainty (d_hh:mm or hh:mm)</dt><dd className="measure">{selected.timeUncertainty}</dd></div>
+            <div><dt>Predicted distance</dt><dd className="measure">{distanceLabel(selected.missDistanceKm)}</dd></div>
+            <div><dt>Distance range (3σ)</dt><dd className="measure">{distanceLabel(selected.minimumDistanceKm)} – {distanceLabel(selected.maximumDistanceKm)}</dd></div>
+            <div><dt>Time uncertainty (3σ)</dt><dd className="measure">{selected.timeUncertainty}</dd></div>
             <div><dt>Diameter (±1σ)</dt><dd className="measure">{selected.diameterKm === null ? "Unknown" : `${selected.diameterKm.toFixed(3)} km${selected.diameterSigmaKm === null ? "" : ` ± ${selected.diameterSigmaKm.toFixed(3)} km`}`}</dd></div>
           </dl>
+          <p>Time uncertainty is in hours:minutes, with days before the underscore.</p>
         </ApproachDetail>
       )}
     </section>

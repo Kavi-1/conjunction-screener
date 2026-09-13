@@ -94,24 +94,24 @@ export function CollisionReplay({ validation }: { validation: CollisionValidatio
         </div>
         <dl className="replay-readout">
           <div><dt>Separation now</dt><dd className="measure">{currentRangeKm?.toFixed(2) ?? "—"} km</dd></div>
-          <div><dt>Computed TCA (UTC)</dt><dd className="measure">{validation.computedTcaUtc}</dd></div>
-          <div><dt>SOCRATES-predicted TCA (UTC)</dt><dd className="measure">{validation.referencePredictedTcaUtc}</dd></div>
-          <div><dt>Computed miss distance</dt><dd className="measure">{validation.missDistanceKm.toFixed(3)} km</dd></div>
-          <div><dt>Relative velocity</dt><dd className="measure">{validation.relativeVelocityKmS.toFixed(3)} km/s</dd></div>
+          <div><dt>Predicted closest approach (UTC)</dt><dd className="measure">{validation.computedTcaUtc}</dd></div>
+          <div><dt>SOCRATES reference (UTC)</dt><dd className="measure">{validation.referencePredictedTcaUtc}</dd></div>
+          <div><dt>Predicted miss distance</dt><dd className="measure">{validation.missDistanceKm.toFixed(3)} km</dd></div>
+          <div><dt>Relative speed</dt><dd className="measure">{validation.relativeVelocityKmS.toFixed(3)} km/s</dd></div>
         </dl>
-        <p>This compares two predictions, not a measured impact timestamp. Public elements predict a nonzero separation even though the satellites collided.</p>
-        <p>Element ages at computed TCA: {records.map((record) => `${record.name}: ${formatElementAgeHours((Date.parse(validation.computedTcaUtc) - elementEpochUtc(record).getTime()) / 3_600_000)}`).join("; ")}.</p>
+        <p>Both times are predictions, not measured collision times.</p>
+        <p>Orbit data age at closest approach: {records.map((record) => `${record.name}: ${formatElementAgeHours((Date.parse(validation.computedTcaUtc) - elementEpochUtc(record).getTime()) / 3_600_000)}`).join("; ")}.</p>
         {completed && (
           <div className="replay-verdict" aria-live="polite">
-            <p>Past the event.</p>
+            <p>Replay complete.</p>
             <strong className="measure">
               Difference from SOCRATES {validation.deltaSeconds >= 0 ? "+" : ""}
               {validation.deltaSeconds.toFixed(3)} s
             </strong>
             <span>
-              They collided. These elements put them{" "}
-              {validation.missDistanceKm.toFixed(3)} km apart. That gap is how far
-              off public element sets can be.
+              The satellites collided, but the model puts them{" "}
+              {validation.missDistanceKm.toFixed(3)} km apart.
+              Public orbit data is not exact.
             </span>
           </div>
         )}

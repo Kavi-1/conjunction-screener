@@ -60,7 +60,7 @@ export function OverheadPasses() {
     };
     worker.onerror = () => {
       if (workerRef.current !== worker) return;
-      setPassError("Pass prediction stopped unexpectedly. Please retry.");
+      setPassError("Could not calculate passes. Try again.");
       setState("ready");
       worker.terminate();
       workerRef.current = null;
@@ -103,8 +103,8 @@ export function OverheadPasses() {
     <section className="overhead" aria-labelledby="overhead-title">
       <div className="overhead-heading">
         <div>
-          <h2 id="overhead-title">Passes overhead</h2>
-          <p>Next 24 hours. Geometric passes above the horizon, not guaranteed visible sightings. Brief grazing passes may be missed.</p>
+          <h2 id="overhead-title">Upcoming passes</h2>
+          <p>Find passes near you in the next 24 hours.</p>
         </div>
         {state === "idle" || state === "ready" ? (
           <button type="button" disabled={catalogStatus === "loading"} onClick={requestLocation}>
@@ -115,19 +115,19 @@ export function OverheadPasses() {
 
       {state === "locating" ? (
         <p className="pass-status" role="status">
-          Waiting for permission…
+          Waiting for location access…
         </p>
       ) : null}
 
       {state === "calculating" ? (
         <p className="pass-status" role="status">
-          Calculating…
+          Finding passes…
         </p>
       ) : null}
 
       {state === "city" ? (
         <form className="city-form" onSubmit={submitCity}>
-          <label htmlFor="city">No location. Pick a city.</label>
+          <label htmlFor="city">Choose a city</label>
           <div>
             <input
               id="city"
@@ -151,7 +151,7 @@ export function OverheadPasses() {
       {state === "ready" ? (
         <div className="pass-results">
           <p>
-            <strong>{observer?.label}</strong>, times in your browser’s timezone.
+            <strong>{observer?.label}</strong>. Times use your device’s timezone.
           </p>
           {passError ? <p role="alert">{passError}</p> : passes.length ? (
             <ol>
@@ -160,8 +160,8 @@ export function OverheadPasses() {
                   <div>
                     <strong>{pass.objectName}</strong>
                     <span className="measure">NORAD {pass.catalogNumber}</span>
-                    <span>Elements {formatElementAgeHours(pass.elementAgeHours)}{isStaleElementAge(pass.elementAgeHours) ? ", stale" : ""}</span>
-                    {(pass.clippedStart || pass.clippedEnd) && <span>Partial pass at the prediction-window boundary; duration and peak cover only this window.</span>}
+                    <span>Orbit data age: {formatElementAgeHours(pass.elementAgeHours)}{isStaleElementAge(pass.elementAgeHours) ? ", old data" : ""}</span>
+                    {(pass.clippedStart || pass.clippedEnd) && <span>Only the part within these 24 hours is shown.</span>}
                   </div>
                   <dl>
                     <div>
@@ -185,8 +185,9 @@ export function OverheadPasses() {
               ))}
             </ol>
           ) : (
-            <p>Nothing crosses your horizon in the next 24 hours.</p>
+            <p>No passes found in the next 24 hours.</p>
           )}
+          {!passError && <p>You may not be able to see every pass. Short passes can be missed.</p>}
         </div>
       ) : null}
     </section>

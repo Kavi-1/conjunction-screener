@@ -26,7 +26,7 @@ const measure = IBM_Plex_Mono({
 export const metadata: Metadata = {
   title: "Conjunction Screener",
   description:
-    "Tracked objects propagated with SGP4 in the browser, with element set age shown alongside every position.",
+    "Track satellites, find overhead passes, and check close approaches using public orbital data.",
 };
 
 export default function RootLayout({ children }: Readonly<{ children: ReactNode }>) {

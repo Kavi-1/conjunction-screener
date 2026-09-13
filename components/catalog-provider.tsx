@@ -27,7 +27,7 @@ function requestCatalog(): Promise<SatelliteCatalogPayload> {
     catalogRequest = fetch("/api/tle", {
       headers: { Accept: "application/json" },
     }).then(async (response) => {
-      if (!response.ok) throw new Error(`Catalog route returned ${response.status}`);
+      if (!response.ok) throw new Error(`Could not load satellite data (HTTP ${response.status}).`);
       const payload = (await response.json()) as unknown;
       if (
         !payload ||
@@ -35,7 +35,7 @@ function requestCatalog(): Promise<SatelliteCatalogPayload> {
         (payload as { source?: unknown }).source !== "celestrak" ||
         !Array.isArray((payload as { satellites?: unknown }).satellites)
       ) {
-        throw new Error("Catalog route returned an invalid response");
+        throw new Error("Could not read the satellite data.");
       }
       return payload as SatelliteCatalogPayload;
     });
@@ -94,10 +94,10 @@ export function CatalogStatus() {
   const { records, stale, status } = useCatalog();
   const label =
     status === "loading"
-      ? "Connecting to Celestrak"
+      ? "Loading CelesTrak data…"
       : status === "live"
-        ? `${records.length} Celestrak objects${stale ? ", cached" : ""}`
-        : `${records.length} fixture objects, live feed unavailable`;
+        ? `${records.length} CelesTrak objects${stale ? ", cached data" : ""}`
+        : `${records.length} saved objects. Live data unavailable.`;
 
   return (
     <p className="feed-state" data-status={status} aria-live="polite">

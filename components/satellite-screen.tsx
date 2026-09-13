@@ -23,10 +23,10 @@ function readWideScreen(): boolean {
 }
 
 const STAGE_LABELS: Record<ScreeningProgress["stage"], string> = {
-  prepare: "Sampling SGP4 trajectories",
-  apsis: "Testing radial overlap",
-  path: "Comparing swept path bounds",
-  propagate: "Finding and refining encounters",
+  prepare: "Calculating positions",
+  apsis: "Checking orbit heights",
+  path: "Checking paths",
+  propagate: "Finding close approaches",
 };
 
 export function SatelliteScreen() {
@@ -83,7 +83,7 @@ export function SatelliteScreen() {
       }
     });
     worker.addEventListener("error", () => {
-      setError("The screening worker stopped unexpectedly.");
+      setError("Screening stopped. Try again.");
       setStatus("error");
       setProgress(null);
     });
@@ -108,7 +108,7 @@ export function SatelliteScreen() {
           throw new Error(
             typeof body?.error === "string"
               ? body.error
-              : `Catalog route returned ${response.status}`,
+              : `Could not load satellite data (HTTP ${response.status}).`,
           );
         }
         const payload = (await response.json()) as SatelliteCatalogPayload;
@@ -116,7 +116,7 @@ export function SatelliteScreen() {
           !Array.isArray(payload.satellites) ||
           (payload.group !== "active" && payload.fallbackFor !== "active")
         ) {
-          throw new Error("Catalog route returned an invalid active catalog");
+          throw new Error("Could not read the active satellite catalog.");
         }
         if (active) {
           setCatalog(payload);
@@ -125,7 +125,7 @@ export function SatelliteScreen() {
       })
       .catch((reason: unknown) => {
         if (!active) return;
-        setError(reason instanceof Error ? reason.message : "Active catalog unavailable");
+        setError(reason instanceof Error ? reason.message : "Satellite data is unavailable.");
         setStatus("error");
       }); };
     refresh(true);
@@ -149,7 +149,7 @@ export function SatelliteScreen() {
       tcaLabel: formatUtcTimestamp(new Date(result.tcaUtc)),
       missDistanceLabel: `${result.missDistanceKm.toFixed(2)} km`,
       relativeVelocityLabel: `${result.relativeVelocityKmS.toFixed(2)} km/s`,
-      auxiliaryLabel: `${formatElementAgeHours(result.oldestElementAgeHours)}${stale ? ", stale" : ""}`,
+      auxiliaryLabel: `${formatElementAgeHours(result.oldestElementAgeHours)}${stale ? ", old data" : ""}`,
       auxiliaryAlert: stale,
     };
   });
@@ -169,15 +169,15 @@ export function SatelliteScreen() {
         </summary>
         <div className="screen-fields">
         <label>
-          Window <output className="measure">{windowHours} h</output>
+          Time window <output className="measure">{windowHours} h</output>
           <input type="range" min="6" max="48" step="6" value={windowHours} onChange={(event) => setWindowHours(Number(event.target.value))} />
         </label>
         <label>
-          Threshold <output className="measure">{thresholdKm} km</output>
+          Distance limit <output className="measure">{thresholdKm} km</output>
           <input type="range" min="1" max="50" step="1" value={thresholdKm} onChange={(event) => setThresholdKm(Number(event.target.value))} />
         </label>
         <label>
-          Catalog cap <output className="measure">{maxObjects}</output>
+          Object limit <output className="measure">{maxObjects}</output>
           <input type="range" min="100" max="500" step="50" value={maxObjects} onChange={(event) => setMaxObjects(Number(event.target.value))} />
         </label>
         <button type="button" disabled={!catalog || status === "screening"} onClick={() => catalog && runScreen(catalog, { windowHours, thresholdKm, maxObjects })}>
@@ -186,7 +186,7 @@ export function SatelliteScreen() {
         </div>
       </details>
 
-      {status === "loading" && <p className="screen-state">Loading the active catalog…</p>}
+      {status === "loading" && <p className="screen-state">Loading satellite data…</p>}
       {progress && (
         <div className="screen-progress" aria-live="polite">
           <div><span>{STAGE_LABELS[progress.stage]}</span><span className="measure">{progressPercent}%</span></div>
@@ -195,36 +195,35 @@ export function SatelliteScreen() {
       )}
       {error && <p className="screen-error" role="alert">{error}</p>}
       <p className="screen-state">
-        Educational screening of the freshest LEO sample, not the full catalog.
-        SGP4 predicts separation, not collision probability. Short encounters can
-        still be missed by time sampling; public elements have no position uncertainty here.
+        Calculated in your browser with SGP4. This checks a sample of
+        low-Earth-orbit objects, not the full catalog.
       </p>
-      {catalog?.offlineFixture && <p className="screen-error" role="status">Live catalog unavailable. Using eight archived fixture objects, not an active-catalog search. The <a href="/replay">2009 replay</a> is also available offline.</p>}
-      {catalog?.stale && !catalog.offlineFixture && <p className="screen-state">Using a cached catalog; upstream freshness could not be confirmed. Check element ages.</p>}
-      {catalog?.fallbackFor && <p className="screen-state">Active catalog unavailable; screening the smaller visual catalog.</p>}
-      {!!catalog?.discardedRecords && <p className="screen-state">Excluded {catalog.discardedRecords} invalid or duplicate source records.</p>}
+      {catalog?.offlineFixture && <p className="screen-error" role="status">Live data unavailable. Showing eight saved objects, not the active catalog. You can also try the <a href="/replay">2009 replay</a>.</p>}
+      {catalog?.stale && !catalog.offlineFixture && <p className="screen-state">Refresh failed. Showing cached data. Check the orbit data ages below.</p>}
+      {catalog?.fallbackFor && <p className="screen-state">Active catalog unavailable. Using the smaller visual catalog.</p>}
+      {!!catalog?.discardedRecords && <p className="screen-state">Skipped {catalog.discardedRecords} invalid or duplicate records.</p>}
 
       {report && (
         <>
           <dl className="gate-readout">
-            <div><dt>{catalog?.fallbackFor === "active" ? "Catalog, visual set" : "Catalog objects"}</dt><dd className="measure">{report.stats.catalogObjects}</dd></div>
+            <div><dt>{catalog?.fallbackFor === "active" ? "Visual catalog" : "Catalog objects"}</dt><dd className="measure">{report.stats.catalogObjects}</dd></div>
             <div><dt>LEO screened</dt><dd className="measure">{report.stats.screenedObjects} / {report.stats.eligibleLeoObjects}</dd></div>
             <div><dt>All pairs</dt><dd className="measure">{report.stats.initialPairs.toLocaleString()}</dd></div>
-            <div><dt>After radial gate</dt><dd className="measure">{report.stats.afterApsisPairs.toLocaleString()}</dd></div>
-            <div><dt>After path gate</dt><dd className="measure">{report.stats.afterPathPairs.toLocaleString()}</dd></div>
+            <div><dt>After radial filter</dt><dd className="measure">{report.stats.afterApsisPairs.toLocaleString()}</dd></div>
+            <div><dt>After path filter</dt><dd className="measure">{report.stats.afterPathPairs.toLocaleString()}</dd></div>
             <div><dt>Elapsed</dt><dd className="measure">{(report.stats.elapsedMs / 1_000).toFixed(1)} s</dd></div>
           </dl>
-          <p className="screen-state">{report.results.length} encounters reported; repeat encounters included. Window starts {formatUtcTimestamp(new Date(report.options.startUtc))}. Sampling every {report.options.coarseStepSeconds} s.</p>
+          <p className="screen-state">{report.results.length} close approaches. Start: {formatUtcTimestamp(new Date(report.options.startUtc))}. Sampled every {report.options.coarseStepSeconds} s.</p>
           {report.results.length > 0 ? (
             <ApproachTable
               rows={tableRows}
               selectedId={selected?.id ?? null}
               tcaHeading="Closest approach (UTC)"
-              auxiliaryHeading="Oldest elements"
+              auxiliaryHeading="Oldest orbit data"
               onSelect={(row) => setSelected(report.results.find((result) => result.id === row.id) ?? null)}
             />
           ) : (
-            <p className="empty-results">No approaches crossed this threshold in the screened sample.</p>
+            <p className="empty-results">No close approaches found within this distance for the selected objects.</p>
           )}
           {selected && (
             <ApproachDetail label="Selected pair">

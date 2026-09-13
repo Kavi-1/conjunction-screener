@@ -31,8 +31,8 @@ export function ApproachTable({
           <tr>
             <th scope="col">Objects</th>
             <th scope="col">{tcaHeading}</th>
-            <th scope="col">Miss distance</th>
-            <th scope="col">Relative velocity</th>
+            <th scope="col" title="Predicted separation at closest approach">Miss distance</th>
+            <th scope="col">Relative speed</th>
             <th scope="col">{auxiliaryHeading}</th>
           </tr>
         </thead>

@@ -139,7 +139,7 @@ export function ReplayGlobe({ records, atUtc }: ReplayGlobeProps) {
         });
         resizeObserver.observe(element);
       })
-      .catch(() => setRenderError("This browser could not start the replay globe."));
+      .catch(() => setRenderError("Could not load the replay globe. Try reloading the page."));
 
     return () => {
       cancelled = true;

@@ -35,12 +35,11 @@ export function RangePlot({ result }: RangePlotProps) {
         <strong>
           {result.second.name} <span className="measure">{result.second.catalogNumber}</span>
         </strong>
-        <span>Separation, computed here with SGP4.</span>
+        <span>Predicted separation (SGP4).</span>
       </figcaption>
       <svg viewBox={`0 0 ${WIDTH} ${HEIGHT}`} role="img">
         <title>
-          Range versus time, reaching {result.missDistanceKm.toFixed(2)} kilometers
-          at closest approach
+          Predicted separation over time. Minimum: {result.missDistanceKm.toFixed(2)} kilometers.
         </title>
         <line className="plot-axis" x1={PADDING} y1={HEIGHT - PADDING} x2={WIDTH - PADDING} y2={HEIGHT - PADDING} />
         <line className="plot-axis" x1={PADDING} y1={PADDING} x2={PADDING} y2={HEIGHT - PADDING} />

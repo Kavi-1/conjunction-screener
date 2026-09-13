@@ -1,8 +1,9 @@
 # Local planning and notes
-*.md
-!README.md
+*.[mM][dD]
+!/README.md
 SPEC.md
 CLAUDE.md
+AGENTS.md
 .claude/
 *.local.md
 notes/

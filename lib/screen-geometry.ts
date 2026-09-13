@@ -1,10 +1,17 @@
-import type { SatelliteRecord } from "./propagate.ts";
+import type { SatellitePropagator, SatelliteRecord } from "./propagate.ts";
+import { MAX_SCREEN_SPEED_KM_S } from "./screen-trajectory.ts";
+import {
+  ORBIT_PATH_GRID_SAMPLES,
+  minimumOrbitPathDistanceKm,
+  pathPointKm,
+} from "./orbit-path-distance.ts";
+
+export { minimumOrbitPathDistanceKm };
 
 const EARTH_GRAVITATIONAL_PARAMETER_KM3_S2 = 398_600.4418;
 const TWO_PI = Math.PI * 2;
-const PATH_SAMPLES = 18;
 
-interface Vector3Km {
+export interface Vector3Km {
   x: number;
   y: number;
   z: number;
@@ -78,143 +85,82 @@ export function orbitGeometry(record: SatelliteRecord): OrbitGeometry {
     basisQ,
     sampledPathKm: [],
   };
-  geometry.sampledPathKm = Array.from({ length: PATH_SAMPLES }, (_, index) =>
-    pathPointKm(geometry, (index * TWO_PI) / PATH_SAMPLES),
+  geometry.sampledPathKm = Array.from({ length: ORBIT_PATH_GRID_SAMPLES }, (_, index) =>
+    pathPointKm(geometry, (index * TWO_PI) / ORBIT_PATH_GRID_SAMPLES),
   );
   return geometry;
 }
 
-export function apsisBandsOverlap(
-  first: OrbitGeometry,
-  second: OrbitGeometry,
-  thresholdKm: number,
-): boolean {
-  return !(
-    first.perigeeRadiusKm - second.apogeeRadiusKm > thresholdKm ||
-    second.perigeeRadiusKm - first.apogeeRadiusKm > thresholdKm
-  );
+export interface RadialEnvelopeKm {
+  minRadiusKm: number;
+  maxRadiusKm: number;
 }
 
-function pathPointKm(geometry: OrbitGeometry, eccentricAnomalyRad: number): Vector3Km {
-  const xPerifocalKm =
-    geometry.semiMajorAxisKm *
-    (Math.cos(eccentricAnomalyRad) - geometry.eccentricity);
-  const yPerifocalKm =
-    geometry.semiMajorAxisKm *
-    Math.sqrt(1 - geometry.eccentricity ** 2) *
-    Math.sin(eccentricAnomalyRad);
+/**
+ * The radii SGP4 actually reaches across the screening window.
+ *
+ * Mean-element apsides are not a bound on the propagated trajectory: SGP4's
+ * short-period terms carry the ISS about 6 km inside its mean perigee and
+ * Iridium 33 about 12 km inside its own, so gating on a(1-e) and a(1+e)
+ * discards pairs that do come within the threshold. Sampling the propagator
+ * needs between-sample travel padding. This helper is retained for geometry
+ * tests; production screening shares coarse states in screen-trajectory.ts.
+ */
+export function radialEnvelopeKm(
+  propagate: SatellitePropagator,
+  startUtc: string,
+  windowHours: number,
+  samplesPerOrbit = 90,
+): RadialEnvelopeKm {
+  const startMs = Date.parse(startUtc);
+  const endMs = startMs + windowHours * 3_600_000;
+  const first = propagate(new Date(startMs));
+  if (!first) return { minRadiusKm: 0, maxRadiusKm: Number.POSITIVE_INFINITY };
+
+  // Step from the object's own period so a low orbit and a high one are
+  // resolved equally well.
+  const stepMs = Math.max(
+    1_000,
+    (first.orbitalPeriodMinutes * 60_000) / samplesPerOrbit,
+  );
+
+  let minRadiusKm = Number.POSITIVE_INFINITY;
+  let maxRadiusKm = 0;
+
+  for (let sampleMs = startMs; sampleMs < endMs + stepMs; sampleMs += stepMs) {
+    const atMs = Math.min(sampleMs, endMs);
+    const state = propagate(new Date(atMs));
+    if (!state) return { minRadiusKm: 0, maxRadiusKm: Infinity };
+    const radiusKm = Math.hypot(
+      state.positionEciKm.x,
+      state.positionEciKm.y,
+      state.positionEciKm.z,
+    );
+    minRadiusKm = Math.min(minRadiusKm, radiusKm);
+    maxRadiusKm = Math.max(maxRadiusKm, radiusKm);
+  }
+
+  if (!Number.isFinite(minRadiusKm)) {
+    return { minRadiusKm: 0, maxRadiusKm: Number.POSITIVE_INFINITY };
+  }
+
+  // A measured change is NOT a bound on an unseen extremum. Use the explicit
+  // speed assumption and the maximum time to the nearest sample instead.
+  const paddingKm = MAX_SCREEN_SPEED_KM_S * stepMs / 2_000;
   return {
-    x: geometry.basisP.x * xPerifocalKm + geometry.basisQ.x * yPerifocalKm,
-    y: geometry.basisP.y * xPerifocalKm + geometry.basisQ.y * yPerifocalKm,
-    z: geometry.basisP.z * xPerifocalKm + geometry.basisQ.z * yPerifocalKm,
+    minRadiusKm: minRadiusKm - paddingKm,
+    maxRadiusKm: maxRadiusKm + paddingKm,
   };
 }
 
-function squaredDistance(first: Vector3Km, second: Vector3Km): number {
-  return (
-    (first.x - second.x) ** 2 +
-    (first.y - second.y) ** 2 +
-    (first.z - second.z) ** 2
+/** True when the two objects' propagated radial bands can come within the threshold. */
+export function radialBandsOverlap(
+  first: RadialEnvelopeKm,
+  second: RadialEnvelopeKm,
+  thresholdKm: number,
+): boolean {
+  return !(
+    first.minRadiusKm - second.maxRadiusKm > thresholdKm ||
+    second.minRadiusKm - first.maxRadiusKm > thresholdKm
   );
-}
-
-function goldenMinimum(
-  evaluate: (angleRad: number) => number,
-  centerRad: number,
-): { angleRad: number; value: number } {
-  const halfSampleRad = Math.PI / PATH_SAMPLES;
-  let low = centerRad - halfSampleRad;
-  let high = centerRad + halfSampleRad;
-  const ratio = (Math.sqrt(5) - 1) / 2;
-  let left = high - ratio * (high - low);
-  let right = low + ratio * (high - low);
-  let leftValue = evaluate(left);
-  let rightValue = evaluate(right);
-
-  for (let iteration = 0; iteration < 18; iteration += 1) {
-    if (leftValue < rightValue) {
-      high = right;
-      right = left;
-      rightValue = leftValue;
-      left = high - ratio * (high - low);
-      leftValue = evaluate(left);
-    } else {
-      low = left;
-      left = right;
-      leftValue = rightValue;
-      right = low + ratio * (high - low);
-      rightValue = evaluate(right);
-    }
-  }
-
-  return leftValue < rightValue
-    ? { angleRad: left, value: leftValue }
-    : { angleRad: right, value: rightValue };
-}
-
-// A sampled global search followed by alternating local minimization gives a
-// practical geometric path gate without pretending to be an analytical MOID.
-export function minimumOrbitPathDistanceKm(
-  first: OrbitGeometry,
-  second: OrbitGeometry,
-): number {
-  let bestSquaredKm = Number.POSITIVE_INFINITY;
-  let firstAngleRad = 0;
-  let secondAngleRad = 0;
-
-  for (let firstIndex = 0; firstIndex < PATH_SAMPLES; firstIndex += 1) {
-    for (let secondIndex = 0; secondIndex < PATH_SAMPLES; secondIndex += 1) {
-      const candidate = squaredDistance(
-        first.sampledPathKm[firstIndex],
-        second.sampledPathKm[secondIndex],
-      );
-      if (candidate < bestSquaredKm) {
-        bestSquaredKm = candidate;
-        firstAngleRad = (firstIndex * TWO_PI) / PATH_SAMPLES;
-        secondAngleRad = (secondIndex * TWO_PI) / PATH_SAMPLES;
-      }
-    }
-  }
-
-  const sampledFirstAngleRad = firstAngleRad;
-  const sampledSecondAngleRad = secondAngleRad;
-
-  for (let iteration = 0; iteration < 4; iteration += 1) {
-    const fixedSecond = pathPointKm(second, secondAngleRad);
-    const firstMinimum = goldenMinimum(
-      (angleRad) => squaredDistance(pathPointKm(first, angleRad), fixedSecond),
-      firstAngleRad,
-    );
-    firstAngleRad = firstMinimum.angleRad;
-
-    const fixedFirst = pathPointKm(first, firstAngleRad);
-    const secondMinimum = goldenMinimum(
-      (angleRad) => squaredDistance(fixedFirst, pathPointKm(second, angleRad)),
-      secondAngleRad,
-    );
-    secondAngleRad = secondMinimum.angleRad;
-    bestSquaredKm = secondMinimum.value;
-  }
-
-  let reverseFirstAngleRad = sampledFirstAngleRad;
-  let reverseSecondAngleRad = sampledSecondAngleRad;
-  let reverseBestSquaredKm = bestSquaredKm;
-  for (let iteration = 0; iteration < 4; iteration += 1) {
-    const fixedFirst = pathPointKm(first, reverseFirstAngleRad);
-    const secondMinimum = goldenMinimum(
-      (angleRad) => squaredDistance(fixedFirst, pathPointKm(second, angleRad)),
-      reverseSecondAngleRad,
-    );
-    reverseSecondAngleRad = secondMinimum.angleRad;
-
-    const fixedSecond = pathPointKm(second, reverseSecondAngleRad);
-    const firstMinimum = goldenMinimum(
-      (angleRad) => squaredDistance(pathPointKm(first, angleRad), fixedSecond),
-      reverseFirstAngleRad,
-    );
-    reverseFirstAngleRad = firstMinimum.angleRad;
-    reverseBestSquaredKm = firstMinimum.value;
-  }
-
-  return Math.sqrt(Math.min(bestSquaredKm, reverseBestSquaredKm));
 }

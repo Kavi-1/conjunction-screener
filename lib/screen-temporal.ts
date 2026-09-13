@@ -1,4 +1,5 @@
 import { elementEpochUtc } from "./propagate.ts";
+import { MAX_SCREEN_SPEED_KM_S } from "./screen-trajectory.ts";
 import type {
   PropagationStateEci,
   SatellitePropagator,
@@ -11,7 +12,7 @@ import type {
 } from "./screen.ts";
 
 const HOURS_TO_MS = 3_600_000;
-const MAX_LEO_RELATIVE_SPEED_KM_S = 20;
+const MAX_LEO_RELATIVE_SPEED_KM_S = 2 * MAX_SCREEN_SPEED_KM_S;
 
 interface RangeState {
   rangeSquaredKm: number;
@@ -24,7 +25,7 @@ function rangeStateAtMs(
   second: SatellitePropagator,
   atMs: number,
 ): RangeState | null {
-  const atUtc = new Date(atMs);
+  const atUtc = new Date(Math.round(atMs));
   const firstState = first(atUtc);
   const secondState = second(atUtc);
   if (!firstState || !secondState) return null;
@@ -43,6 +44,7 @@ function refineTimeOfClosestApproach(
   second: SatellitePropagator,
   lowMs: number,
   highMs: number,
+  toleranceMs: number,
 ): { atMs: number; state: RangeState } | null {
   const ratio = (Math.sqrt(5) - 1) / 2;
   let leftMs = highMs - ratio * (highMs - lowMs);
@@ -51,8 +53,10 @@ function refineTimeOfClosestApproach(
   let rightState = rangeStateAtMs(first, second, rightMs);
   if (!leftState || !rightState) return null;
 
-  // A 250 ms bracket is comfortably below the requested one-second precision.
-  while (highMs - lowMs > 250) {
+  const endpoints = [lowMs, highMs].map((atMs) => ({ atMs, state: rangeStateAtMs(first, second, atMs) }));
+  // Golden-section refinement assumes one minimum in the bracket. Retain
+  // exact endpoints as well: an encounter can be closest at a window edge.
+  while (highMs - lowMs > toleranceMs) {
     if (leftState.rangeSquaredKm < rightState.rangeSquaredKm) {
       highMs = rightMs;
       rightMs = leftMs;
@@ -70,9 +74,13 @@ function refineTimeOfClosestApproach(
     }
   }
 
-  return leftState.rangeSquaredKm < rightState.rangeSquaredKm
+  let best = leftState.rangeSquaredKm < rightState.rangeSquaredKm
     ? { atMs: leftMs, state: leftState }
     : { atMs: rightMs, state: rightState };
+  for (const endpoint of endpoints) {
+    if (endpoint.state && endpoint.state.rangeSquaredKm < best.state.rangeSquaredKm) best = { atMs: endpoint.atMs, state: endpoint.state };
+  }
+  return { atMs: Math.round(best.atMs), state: best.state };
 }
 
 function rangeSeries(
@@ -85,8 +93,9 @@ function rangeSeries(
   const halfSpanMs = Math.min(30 * 60_000, (endMs - startMs) / 2);
   const seriesStartMs = Math.max(startMs, tcaMs - halfSpanMs);
   const seriesEndMs = Math.min(endMs, tcaMs + halfSpanMs);
-  return Array.from({ length: 31 }, (_, index) => {
-    const atMs = seriesStartMs + ((seriesEndMs - seriesStartMs) * index) / 30;
+  const timesMs = Array.from({ length: 31 }, (_, index) => Math.round(seriesStartMs + ((seriesEndMs - seriesStartMs) * index) / 30));
+  timesMs.push(Math.round(tcaMs));
+  return [...new Set(timesMs)].sort((a, b) => a - b).map((atMs) => {
     const state = rangeStateAtMs(first, second, atMs);
     return {
       atUtc: new Date(atMs).toISOString(),
@@ -95,13 +104,13 @@ function rangeSeries(
   }).filter((sample) => Number.isFinite(sample.rangeKm));
 }
 
-export function screenPairAcrossTime(
+export function screenPairEncountersAcrossTime(
   firstRecord: SatelliteRecord,
   secondRecord: SatelliteRecord,
   first: SatellitePropagator,
   second: SatellitePropagator,
   options: Required<ScreeningOptions>,
-): ConjunctionResult | null {
+): ConjunctionResult[] {
   const startMs = Date.parse(options.startUtc);
   const endMs = startMs + options.windowHours * HOURS_TO_MS;
   const stepMs = options.coarseStepSeconds * 1_000;
@@ -115,12 +124,12 @@ export function screenPairAcrossTime(
     const state = rangeStateAtMs(first, second, endMs);
     if (state) coarseRanges.push({ atMs: endMs, rangeKm: Math.sqrt(state.rangeSquaredKm) });
   }
-  if (coarseRanges.length < 2) return null;
+  if (coarseRanges.length < 2) return [];
 
   const refinementLimitKm =
     options.thresholdKm +
     (MAX_LEO_RELATIVE_SPEED_KM_S * options.coarseStepSeconds) / 2;
-  let best: { atMs: number; state: RangeState } | null = null;
+  const minima: Array<{ atMs: number; state: RangeState }> = [];
 
   for (let index = 0; index < coarseRanges.length; index += 1) {
     const current = coarseRanges[index];
@@ -133,18 +142,23 @@ export function screenPairAcrossTime(
       second,
       Math.max(startMs, current.atMs - stepMs),
       Math.min(endMs, current.atMs + stepMs),
+      options.refinementToleranceMs,
     );
-    if (refined && (!best || refined.state.rangeSquaredKm < best.state.rangeSquaredKm)) {
-      best = refined;
+    if (refined && Math.sqrt(refined.state.rangeSquaredKm) <= options.thresholdKm) {
+      const previous = minima.at(-1);
+      // Adjacent coarse minima can converge on the same encounter.
+      if (previous && Math.abs(previous.atMs - refined.atMs) <= Math.max(2, options.refinementToleranceMs * 2)) {
+        if (refined.state.rangeSquaredKm < previous.state.rangeSquaredKm) minima[minima.length - 1] = refined;
+      } else minima.push(refined);
     }
   }
 
-  if (!best || Math.sqrt(best.state.rangeSquaredKm) > options.thresholdKm) return null;
   const oldestEpochMs = Math.min(
     elementEpochUtc(firstRecord).getTime(),
     elementEpochUtc(secondRecord).getTime(),
   );
-  const relativeVelocityKmS = Math.hypot(
+  return minima.map((best) => {
+    const relativeVelocityKmS = Math.hypot(
     best.state.first.velocityEciKmS.x - best.state.second.velocityEciKmS.x,
     best.state.first.velocityEciKmS.y - best.state.second.velocityEciKmS.y,
     best.state.first.velocityEciKmS.z - best.state.second.velocityEciKmS.z,
@@ -154,10 +168,20 @@ export function screenPairAcrossTime(
     id: `${firstRecord.catalogNumber}-${secondRecord.catalogNumber}-${Math.round(best.atMs)}`,
     first: { name: firstRecord.name, catalogNumber: firstRecord.catalogNumber },
     second: { name: secondRecord.name, catalogNumber: secondRecord.catalogNumber },
-    tcaUtc: new Date(best.atMs).toISOString(),
+    // Rounded, not truncated: the refined time is fractional and Date would
+    // drop the remainder, costing a millisecond in the reported TCA.
+    tcaUtc: new Date(Math.round(best.atMs)).toISOString(),
     missDistanceKm: Math.sqrt(best.state.rangeSquaredKm),
     relativeVelocityKmS,
-    oldestElementAgeHours: Math.max(0, (startMs - oldestEpochMs) / HOURS_TO_MS),
+    oldestElementAgeHours: (startMs - oldestEpochMs) / HOURS_TO_MS,
     rangeSeries: rangeSeries(first, second, best.atMs, startMs, endMs),
   };
+  });
+}
+
+/** Single closest encounter, used by the historical replay. */
+export function screenPairAcrossTime(
+  ...args: Parameters<typeof screenPairEncountersAcrossTime>
+): ConjunctionResult | null {
+  return screenPairEncountersAcrossTime(...args).sort((a, b) => a.missDistanceKm - b.missDistanceKm)[0] ?? null;
 }

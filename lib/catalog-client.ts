@@ -15,7 +15,8 @@ export function createCatalogClient(fetcher: typeof fetch = fetch, now = Date.no
     inFlight = (async () => {
       const response = await fetcher("/api/tle", {
         headers: { Accept: "application/json" },
-        cache: "no-store",
+        // Honor the route's cache headers. Forcing no-store also bypasses
+        // Next's development data cache, losing its last usable catalog.
         signal: AbortSignal.timeout(30_000),
       });
       if (!response.ok) throw new Error(`Could not load satellite data (HTTP ${response.status}).`);

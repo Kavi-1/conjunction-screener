@@ -24,7 +24,7 @@ const measure = IBM_Plex_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Miss Distance",
+  title: "Conjunction Screener",
   description:
     "Tracked objects propagated with SGP4 in the browser, with element set age shown alongside every position.",
 };

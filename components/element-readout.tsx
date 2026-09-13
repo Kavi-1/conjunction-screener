@@ -12,7 +12,7 @@ import {
 import { elementEpochUtc } from "@/lib/propagate";
 
 export function ElementReadout() {
-  const { records, status } = useCatalog();
+  const { records } = useCatalog();
   const oldestEpochUtc = useMemo(
     () =>
       records
@@ -38,28 +38,24 @@ export function ElementReadout() {
     <>
       <dl className="readout">
         <div>
-          <dt>{status === "live" ? "Live objects" : "Objects tracked"}</dt>
+          <dt>Objects</dt>
           <dd className="measure">{records.length}</dd>
         </div>
         <div>
-          <dt>Oldest element set</dt>
+          <dt>Oldest elements</dt>
           <dd className="measure" data-stale={stale}>
             {ageHours === null ? "—" : formatElementAgeHours(ageHours)}
           </dd>
         </div>
         <div>
-          <dt>Propagation model</dt>
+          <dt>Propagation</dt>
           <dd className="measure">SGP4/SDP4</dd>
-        </div>
-        <div>
-          <dt>Position update</dt>
-          <dd className="measure">1 Hz</dd>
         </div>
       </dl>
       {stale ? (
         <p className="readout-note">
-          These element sets are more than {STALE_ELEMENT_AGE_HOURS} hours old. Positions
-          drawn from them can be wrong by kilometers.
+          Older than {STALE_ELEMENT_AGE_HOURS} hours. These positions can be wrong
+          by kilometers.
         </p>
       ) : null}
     </>

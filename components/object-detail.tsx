@@ -29,30 +29,32 @@ export function ObjectDetail({
   const stale = isStaleElementAge(selected.elementAgeHours);
 
   return (
-    <aside className="object-inspector" aria-label="Tracked object details">
-      <label htmlFor="object-select">Inspect an object</label>
-      <select
-        id="object-select"
-        value={selected.catalogNumber}
-        onChange={(event) => onSelect(event.target.value)}
-      >
-        {positions.map((position) => (
-          <option key={position.catalogNumber} value={position.catalogNumber}>
-            {position.name}
-          </option>
-        ))}
-      </select>
+    <section className="object-inspector" aria-label="Tracked object details">
+      <div className="object-inspector-head">
+        <div>
+          <h2>{selected.name}</h2>
+          <p className="measure">
+            NORAD {selected.catalogNumber}, {selected.internationalDesignator},{" "}
+            {selected.regime}
+          </p>
+        </div>
+        <div className="object-picker">
+          <label htmlFor="object-select">Pick another</label>
+          <select
+            id="object-select"
+            value={selected.catalogNumber}
+            onChange={(event) => onSelect(event.target.value)}
+          >
+            {positions.map((position) => (
+              <option key={position.catalogNumber} value={position.catalogNumber}>
+                {position.name}
+              </option>
+            ))}
+          </select>
+        </div>
+      </div>
+
       <dl>
-        <div>
-          <dt>Catalog / designator</dt>
-          <dd className="measure">
-            {selected.catalogNumber} / {selected.internationalDesignator}
-          </dd>
-        </div>
-        <div>
-          <dt>Orbit regime</dt>
-          <dd className="measure">{selected.regime}</dd>
-        </div>
         <div>
           <dt>Altitude</dt>
           <dd className="measure">{selected.altitudeKm.toFixed(0)} km</dd>
@@ -80,6 +82,18 @@ export function ObjectDetail({
           </dd>
         </div>
       </dl>
-    </aside>
+
+      <p className="track-note">
+        <span aria-hidden="true" /> Its path over the next{" "}
+        {selected.orbitalPeriodMinutes.toFixed(0)} minutes. It drifts west as Earth
+        turns underneath.
+      </p>
+
+      {stale ? (
+        <p className="object-inspector-warning">
+          These elements are old enough to put this position off by kilometers.
+        </p>
+      ) : null}
+    </section>
   );
 }

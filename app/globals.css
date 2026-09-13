@@ -22,6 +22,11 @@
 
   --prose: var(--font-prose), Spectral, Georgia, "Times New Roman", serif;
   --measure: var(--font-measure), ui-monospace, SFMono-Regular, Menlo, monospace;
+
+  /* One page width and one gutter for every view. Each screen used to set its
+     own, which is why the three views did not line up with each other. */
+  --page-max: 1440px;
+  --page-gutter: 5vw;
 }
 
 * {
@@ -67,43 +72,79 @@ a:hover {
 }
 
 .site-header {
-  align-items: baseline;
+  align-items: end;
   border-bottom: 1px solid var(--line);
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.5rem 1.5rem;
-  justify-content: space-between;
+  column-gap: clamp(1.25rem, 4vw, 3rem);
+  display: grid;
+  grid-template-columns: auto auto 1fr;
   margin-inline: auto;
-  max-width: 1440px;
-  padding: 1.35rem 5vw 1.1rem;
+  max-width: var(--page-max);
+  padding: 1.15rem var(--page-gutter) 0;
+  row-gap: 0.2rem;
 }
 
 .wordmark {
   font-size: clamp(1.05rem, 2vw, 1.3rem);
   font-weight: 500;
   letter-spacing: -0.01em;
+  padding-bottom: 0.95rem;
   text-decoration: none;
+  white-space: nowrap;
 }
 
-.wordmark span {
-  color: var(--signal);
-  margin-left: 0.1rem;
-}
-
-.site-header nav {
+.site-header nav ul {
   display: flex;
-  font-size: 0.82rem;
-  gap: 1.1rem;
+  gap: clamp(0.9rem, 2.5vw, 1.9rem);
+  list-style: none;
+  margin: 0;
+  padding: 0;
 }
 
+/* The current view is marked by a rule that meets the header's own border, the
+   same device the in-page tabs use, rather than by colour alone. */
 .site-header nav a {
+  border-bottom: 2px solid transparent;
   color: var(--muted);
+  display: block;
+  font-size: 0.88rem;
+  margin-bottom: -1px;
+  padding: 0.6rem 0 0.9rem;
   text-decoration: none;
+  white-space: nowrap;
 }
 
-.site-header nav a:hover,
-.site-header nav a[aria-current="page"] {
+.site-header nav a:hover {
   color: var(--paper);
+}
+
+.site-header nav a[aria-current="page"] {
+  border-bottom-color: var(--signal);
+  color: var(--paper);
+}
+
+.site-header-status {
+  justify-self: end;
+  padding-bottom: 0.95rem;
+}
+
+/* Shared intro block. Previously each view defined its own vertical rhythm and
+   headline measure, so switching tabs shifted the page under the reader. */
+.page-intro {
+  margin-inline: auto;
+  max-width: var(--page-max);
+  padding: clamp(2.4rem, 6vw, 5rem) var(--page-gutter) clamp(1.6rem, 4vw, 2.6rem);
+}
+
+.page-intro h1 {
+  max-width: 14ch;
+}
+
+.page-intro > p {
+  color: var(--muted);
+  font-size: clamp(1rem, 1.5vw, 1.1rem);
+  line-height: 1.72;
+  margin: 1.3rem 0 0;
+  max-width: 36rem;
 }
 
 .feed-state {
@@ -134,8 +175,8 @@ a:hover {
 .hero {
   display: grid;
   margin-inline: auto;
-  max-width: 1440px;
-  padding: clamp(2.2rem, 6vw, 5.5rem) 5vw 2rem;
+  max-width: var(--page-max);
+  padding: clamp(2.4rem, 6vw, 5rem) var(--page-gutter) 2rem;
   position: relative;
 }
 
@@ -204,6 +245,12 @@ h1 {
 .orbital-stage {
   display: grid;
   margin-top: clamp(0rem, 2vw, 1.5rem);
+}
+
+/* The globe and its overlays. The detail panel sits below this, in flow, so the
+   legend anchors here rather than to the whole column. */
+.globe-viewport {
+  display: grid;
   min-height: min(64rem, 78vw);
   position: relative;
 }
@@ -237,7 +284,11 @@ h1 {
   cursor: grabbing;
 }
 
+/* globe.gl writes cursor:auto straight onto the canvas element, and the pointer
+   is over the canvas rather than this container, so every cursor set here was
+   being ignored. Inheriting hands control back. */
 .globe-canvas canvas {
+  cursor: inherit !important;
   display: block;
 }
 
@@ -363,8 +414,8 @@ h1 {
   gap: 0.75rem 3rem;
   line-height: 1.6;
   margin-inline: auto;
-  max-width: 1440px;
-  padding: 1.6rem 5vw 2.4rem;
+  max-width: var(--page-max);
+  padding: 1.6rem var(--page-gutter) 2.4rem;
 }
 
 .site-footer p {
@@ -381,6 +432,9 @@ h1 {
   .orbital-stage {
     margin-left: -8vw;
     margin-top: 0;
+  }
+
+  .globe-viewport {
     min-height: 0;
   }
 
@@ -402,9 +456,13 @@ h1 {
     margin-top: 2.2rem;
   }
 
-  .orbital-stage {
-    margin-inline: -5vw;
+  .globe-viewport {
+    margin-inline: calc(var(--page-gutter) * -1);
     min-height: 31rem;
+  }
+
+  .app-shell .globe-viewport {
+    min-height: 0;
   }
 
   .globe-frame {
@@ -414,11 +472,584 @@ h1 {
   .orbit-key {
     background: rgba(7, 17, 22, 0.78);
     bottom: 0;
-    right: 5vw;
+    right: var(--page-gutter);
   }
 
   .epoch-clock {
     bottom: 7%;
     left: 8%;
   }
+}
+
+/* Narrow screens: the wordmark and status share the top row, the views drop to
+   their own full-bleed row that can scroll rather than wrapping mid-list. */
+@media (max-width: 720px) {
+  .site-header {
+    grid-template-columns: auto 1fr;
+    padding-top: 0.95rem;
+    row-gap: 0;
+  }
+
+  .wordmark,
+  .site-header-status {
+    padding-bottom: 0.65rem;
+  }
+
+  .site-header nav {
+    grid-column: 1 / -1;
+    margin-inline: calc(var(--page-gutter) * -1);
+    overflow-x: auto;
+    padding-inline: var(--page-gutter);
+    scrollbar-width: none;
+  }
+
+  .site-header nav::-webkit-scrollbar {
+    display: none;
+  }
+
+  .site-header nav a {
+    padding-bottom: 0.8rem;
+  }
+}
+
+/* ---- Fixed-height views -------------------------------------------------
+   The globe and the replay are instruments, not documents: the page itself
+   never scrolls, the globe is always whole and always in view, and only the
+   reading column moves. Table views keep ordinary document scrolling. */
+.app-shell {
+  display: flex;
+  flex-direction: column;
+  height: 100svh;
+  overflow: hidden;
+}
+
+.app-shell .page-intro {
+  padding-block: clamp(1rem, 3vh, 2.2rem);
+}
+
+.app-shell .site-footer {
+  font-size: 0.78rem;
+  padding-block: 0.85rem 1rem;
+}
+
+.app-shell .hero {
+  flex: 1;
+  min-height: 0;
+  padding-block: clamp(0.75rem, 2.5vh, 2.4rem) clamp(0.5rem, 1.5vh, 1.2rem);
+}
+
+.app-shell .intro {
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+}
+
+.app-shell .orbital-stage {
+  grid-template-rows: minmax(0, 1fr) auto;
+  min-height: 0;
+}
+
+/* The globe is square and takes whichever side of its box is shorter. */
+/* The hero centres its items when the page can scroll, which leaves the globe
+   column with no definite height to resolve against. Inside the shell it has
+   to stretch, or the frame sizes itself from content and escapes the column. */
+.app-shell .hero {
+  align-items: stretch;
+}
+
+/* The frame fills its cell and the globe canvas is squared off inside it by the
+   resize observer, so the sphere is never clipped whatever the cell's shape. */
+.app-shell .globe-frame {
+  aspect-ratio: auto;
+  display: grid;
+  height: 100%;
+  max-width: none;
+  place-items: center;
+  width: 100%;
+}
+
+.app-shell .globe-frame::after {
+  display: none;
+}
+
+.app-shell .globe-canvas {
+  display: grid;
+  height: 100%;
+  place-items: center;
+  width: 100%;
+}
+
+/* Grid items refuse to shrink below their content, so the rendered canvas would
+   hold its parents open at whatever size it was last given and the resize
+   observer would keep measuring that same size back. */
+.app-shell .globe-viewport,
+.app-shell .globe-frame,
+.app-shell .globe-canvas {
+  min-height: 0;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.app-shell .object-inspector {
+  margin-top: 1rem;
+  max-height: 34vh;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding-top: 0.8rem;
+}
+
+@media (max-width: 899px) {
+  /* The globe leads; the readings sit under it in their own scrolling pane. */
+  .app-shell .hero {
+    grid-template-rows: minmax(34svh, 1fr) minmax(0, auto);
+  }
+
+  .app-shell .orbital-stage {
+    order: -1;
+  }
+
+  .app-shell .intro {
+    max-height: 44svh;
+  }
+
+  .app-shell h1 {
+    font-size: clamp(2.1rem, 8vw, 3.2rem);
+  }
+
+  .app-shell .lede {
+    font-size: 0.95rem;
+    margin-top: 1rem;
+  }
+}
+
+/* The viewport floors below size the globe when the page is free to scroll.
+   Inside the shell the hero's rows do that job, so the floors would only push
+   the layout past the screen. */
+.app-shell .globe-viewport {
+  min-height: 0;
+}
+
+.app-shell .globe-frame {
+  align-self: center;
+  justify-self: center;
+}
+
+/* The globe overlapped the text column by design when the page scrolled. With
+   the detail panel now sitting under the globe, that overlap is a collision. */
+.app-shell .orbital-stage {
+  margin-left: 0;
+}
+
+.app-shell .epoch-clock {
+  bottom: 0;
+  left: 0;
+}
+
+.app-shell .intro {
+  padding-bottom: 1.5rem;
+}
+
+/* In a fixed view the display type has to be sized to the screen rather than to
+   the page, or it spends the whole column on three words. */
+.app-shell h1 {
+  font-size: clamp(2.4rem, 4.6vw, 4.2rem);
+}
+
+.app-shell .lede {
+  margin-top: 1.1rem;
+}
+
+.app-shell .readout {
+  margin-top: 1.7rem;
+}
+
+.app-shell .site-footer p {
+  max-width: none;
+}
+
+.app-shell .object-inspector dl {
+  gap: 0.75rem 1.2rem;
+  grid-template-columns: repeat(auto-fit, minmax(6.5rem, 1fr));
+  margin-top: 1rem;
+}
+
+/* ---- Globe readout rail -------------------------------------------------
+   The legend and clock used to float over the sphere. Given a column of their
+   own they read as instrument markings beside the globe instead of on top of
+   whatever happens to be underneath. */
+.app-shell .globe-viewport {
+  align-items: center;
+  grid-template-columns: minmax(0, 1fr) auto;
+}
+
+.globe-rail {
+  align-self: center;
+  border-left: 1px solid var(--line-strong);
+  padding-left: 1rem;
+  width: 11.5rem;
+}
+
+.app-shell .orbit-key {
+  border-left: 0;
+  bottom: auto;
+  padding-left: 0;
+  position: static;
+  right: auto;
+  width: auto;
+}
+
+.app-shell .epoch-clock {
+  bottom: auto;
+  left: auto;
+  margin-top: 1.1rem;
+  position: static;
+}
+
+.app-shell .site-footer {
+  display: block;
+}
+
+@media (max-width: 899px) {
+  /* Phone: the globe stays pinned at the top while one column scrolls beneath
+     it. Three panes each competing for height left the readouts with 66px and
+     the pass list unreachable. */
+  .app-shell .hero {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+    mask-image: linear-gradient(to bottom, #000 calc(100% - 1.5rem), transparent);
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    scrollbar-gutter: stable;
+  }
+
+  .app-shell .orbital-stage {
+    display: contents;
+  }
+
+  /* Not sticky: pinning it while the pane scrolled under put the globe into a
+     stacking fight with the readouts behind it. The globe leads the column and
+     scrolls with everything else. */
+  .app-shell .globe-viewport {
+    flex: none;
+    grid-template-columns: minmax(0, 1fr);
+    height: 38svh;
+    margin-inline: 0;
+    order: -2;
+  }
+
+  .app-shell .object-inspector {
+    flex: none;
+    max-height: none;
+    order: -1;
+    overflow: visible;
+  }
+
+  .app-shell .intro {
+    flex: none;
+    max-height: none;
+    order: 0;
+    overflow: visible;
+    padding-top: 1.2rem;
+  }
+
+  /* No room for a side rail beside a phone-width globe, so it becomes a strip
+     beneath it. The counts stay; the instructions and headings go. */
+  .app-shell .globe-viewport {
+    grid-template-rows: minmax(0, 1fr) auto;
+  }
+
+  .app-shell .globe-rail {
+    align-items: baseline;
+    border-left: 0;
+    border-top: 1px solid var(--line);
+    column-gap: 1.1rem;
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    padding: 0.5rem 0 0;
+    width: auto;
+  }
+
+  .app-shell .orbit-key ul {
+    display: flex;
+    gap: 0.9rem;
+  }
+
+  .app-shell .orbit-key li {
+    border-top: 0;
+    gap: 0.4rem;
+    padding: 0;
+  }
+
+  .app-shell .orbit-key > p:first-child,
+  .app-shell .drag-note {
+    display: none;
+  }
+
+  .app-shell .epoch-clock {
+    margin-top: 0;
+  }
+
+  .app-shell .epoch-clock span {
+    display: none;
+  }
+}
+
+/* The status belongs beside the wordmark; without explicit placement grid flow
+   pushed it below the views row. */
+@media (max-width: 720px) {
+  .wordmark {
+    grid-column: 1;
+    grid-row: 1;
+  }
+
+  .site-header-status {
+    grid-column: 2;
+    grid-row: 1;
+  }
+
+  .site-header nav {
+    grid-column: 1 / -1;
+    grid-row: 2;
+  }
+}
+
+.app-shell .page-intro {
+  padding-block: clamp(0.9rem, 2.2vh, 1.6rem);
+}
+
+.app-shell .page-intro > p {
+  font-size: 0.98rem;
+  margin-top: 0.9rem;
+  max-width: 42rem;
+}
+
+@media (max-width: 899px) {
+  .app-shell .page-intro {
+    padding-block: 0.9rem 0.7rem;
+  }
+
+  .app-shell .page-intro h1 {
+    font-size: clamp(1.6rem, 6.5vw, 2.1rem);
+  }
+
+  .app-shell .page-intro > p {
+    font-size: 0.88rem;
+    line-height: 1.6;
+    margin-top: 0.7rem;
+  }
+
+  /* Left-aligned on a phone; the end-aligned picker read as stray centred text. */
+  .app-shell .object-picker {
+    justify-items: start;
+  }
+}
+
+/* ---- One scrolling region per view -------------------------------------
+   Every view is the same shape: a header that never moves, a fixed intro, and
+   exactly one pane that scrolls. Reserving the scrollbar gutter keeps the
+   header and gutters from shifting sideways as you move between tabs. */
+.view-scroll {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+}
+
+.app-shell .intro,
+.app-shell .object-inspector {
+  scrollbar-gutter: stable;
+}
+
+/* Auto inline margins make a flex child shrink-wrap its content, so the header
+   was as wide as whatever that view happened to put in it and the nav moved
+   between tabs. Every band spans the shell and centres its own content. */
+.app-shell > * {
+  width: 100%;
+}
+
+/* ---- Desktop: the globe is the field, everything else sits on it ---------
+   The globe takes the whole hero rather than a column of it, and the readouts
+   are placed in the clear margins either side. The object band at the foot
+   fades into the page instead of sitting in a panel. */
+@media (min-width: 900px) {
+  .app-shell .hero {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: minmax(0, 1fr);
+    position: relative;
+  }
+
+  .app-shell .hero > * {
+    grid-area: 1 / 1;
+  }
+
+  /* The object band occupies the foot of the view, so the left overlay stops
+     above it and scrolls within what is left. Running it full height put the
+     pass list underneath the band's own text. */
+  .app-shell .hero {
+    --object-band: 15rem;
+  }
+
+  .app-shell .intro {
+    align-self: start;
+    justify-self: start;
+    /* Fades the cut edge so a clipped line reads as "more below" rather than
+       as a rendering fault. */
+    mask-image: linear-gradient(to bottom, #000 calc(100% - 1.75rem), transparent);
+    max-height: calc(100% - var(--object-band));
+    max-width: 20rem;
+    position: relative;
+    z-index: 2;
+  }
+
+  .app-shell .orbital-stage {
+    grid-template-rows: minmax(0, 1fr);
+    margin-left: 0;
+    position: relative;
+  }
+
+  .app-shell .globe-viewport {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .app-shell .globe-rail {
+    justify-self: end;
+    position: absolute;
+    right: 0;
+    top: 50%;
+    transform: translateY(-50%);
+    z-index: 2;
+  }
+
+  /* Three readouts in two columns left a hole; as a list they read as a stack
+     of instrument values, which is what they are. */
+  .app-shell .intro .readout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .app-shell .intro .readout > div {
+    align-items: baseline;
+    display: flex;
+    gap: 1rem;
+    justify-content: space-between;
+    padding-block: 0.5rem 0.55rem;
+  }
+
+  .app-shell .intro .readout dd {
+    margin-top: 0;
+  }
+
+  .app-shell .object-inspector {
+    border-top: 0;
+    bottom: 0;
+    left: 0;
+    margin-top: 0;
+    max-height: none;
+    overflow: visible;
+    padding: 3rem 0 0;
+    position: absolute;
+    right: 0;
+    z-index: 3;
+  }
+
+  /* The globe's own markings step back so the readouts stay first to read. */
+  .app-shell .globe-rail,
+  .app-shell .epoch-clock {
+    opacity: 0.88;
+  }
+}
+
+/* The globe canvas fills its box, so a zoomed sphere runs past the edges. Fade
+   them rather than letting the viewport crop the Earth on a hard line. The
+   inset is wide enough that nothing is dimmed at the default zoom. */
+.globe-canvas {
+  -webkit-mask-image: linear-gradient(
+      to right,
+      transparent 0,
+      #000 6%,
+      #000 94%,
+      transparent 100%
+    ),
+    linear-gradient(to bottom, transparent 0, #000 5%, #000 95%, transparent 100%);
+  -webkit-mask-composite: source-in;
+  mask-image: linear-gradient(
+      to right,
+      transparent 0,
+      #000 6%,
+      #000 94%,
+      transparent 100%
+    ),
+    linear-gradient(to bottom, transparent 0, #000 5%, #000 95%, transparent 100%);
+  mask-composite: intersect;
+}
+
+/* ---- The globe is the page ---------------------------------------------
+   The canvas is taken out of flow and pinned to the whole viewport, so the
+   Earth runs behind the header, the readouts and the footer. Everything else
+   is lifted above it and reads as instrument markings on the view. */
+@media (min-width: 900px) {
+  .app-shell .globe-frame {
+    inset: 0;
+    position: fixed;
+    z-index: 0;
+  }
+
+  .app-shell .site-header,
+  .app-shell .site-footer,
+  .app-shell .intro,
+  .app-shell .globe-rail {
+    position: relative;
+    z-index: 2;
+  }
+
+  .app-shell .object-inspector {
+    z-index: 3;
+  }
+
+  /* The rail anchored to the globe's old box; the globe is the screen now. */
+  .app-shell .globe-rail {
+    position: absolute;
+    right: var(--page-gutter);
+  }
+
+  /* One scrim for the whole view rather than one per bar. A gradient painted on
+     an element always terminates at that element's edge, which is what left a
+     hard line at the header's border and a bright 13px strip between the object
+     band and the footer. This spans the viewport, so it has no seams. */
+  .app-shell::before {
+    background:
+      linear-gradient(
+        to bottom,
+        rgba(7, 17, 22, 0.92) 0%,
+        rgba(7, 17, 22, 0.55) 7%,
+        rgba(7, 17, 22, 0) 17%
+      ),
+      linear-gradient(
+        to top,
+        rgba(7, 17, 22, 0.94) 0%,
+        rgba(7, 17, 22, 0.6) 12%,
+        rgba(7, 17, 22, 0) 33%
+      );
+    content: "";
+    inset: 0;
+    pointer-events: none;
+    position: fixed;
+    z-index: 1;
+  }
+
+  .app-shell .site-header,
+  .app-shell .site-footer,
+  .app-shell .object-inspector {
+    background: none;
+    border-bottom-width: 0;
+    border-top-width: 0;
+  }
+}
+
+/* Same faded cut edge as the other scrolling panes. */
+.view-scroll {
+  mask-image: linear-gradient(to bottom, #000 calc(100% - 1.5rem), transparent);
 }

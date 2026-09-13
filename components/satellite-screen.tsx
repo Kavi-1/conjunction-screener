@@ -199,7 +199,7 @@ export function SatelliteScreen() {
         SGP4 predicts separation, not collision probability. Short encounters can
         still be missed by time sampling; public elements have no position uncertainty here.
       </p>
-      {catalog?.offlineFixture && <p className="screen-error" role="status">Live catalog unavailable. Using eight archived fixture objects, not an active-catalog search. The 2009 replay is also available offline.</p>}
+      {catalog?.offlineFixture && <p className="screen-error" role="status">Live catalog unavailable. Using eight archived fixture objects, not an active-catalog search. The <a href="/replay">2009 replay</a> is also available offline.</p>}
       {catalog?.stale && !catalog.offlineFixture && <p className="screen-state">Using a cached catalog; upstream freshness could not be confirmed. Check element ages.</p>}
       {catalog?.fallbackFor && <p className="screen-state">Active catalog unavailable; screening the smaller visual catalog.</p>}
       {!!catalog?.discardedRecords && <p className="screen-state">Excluded {catalog.discardedRecords} invalid or duplicate source records.</p>}

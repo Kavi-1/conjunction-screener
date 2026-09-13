@@ -1,7 +1,7 @@
 {
   "source": "https://celestrak.org/events/collision/",
   "scenarioSource": "https://celestrak.org/events/VDF/Collision.vdf",
-  "documentedCollisionUtc": "2009-02-10T16:55:59.806Z",
+  "referencePredictedTcaUtc": "2009-02-10T16:55:59.806Z",
   "replayStartUtc": "2009-02-10T16:50:00.000Z",
   "replayEndUtc": "2009-02-10T17:02:00.000Z",
   "satellites": [

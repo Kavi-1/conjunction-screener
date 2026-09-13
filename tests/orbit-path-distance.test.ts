@@ -4,15 +4,14 @@ import test from "node:test";
 import satelliteFixture from "../fixtures/satellites.json" with { type: "json" };
 import collisionFixture from "../fixtures/iridium-cosmos-2009.json" with { type: "json" };
 import verificationFixture from "../fixtures/sgp4-verification.json" with { type: "json" };
-import type { OmmRecord, TleRecord } from "../lib/propagate.ts";
+import type { TleRecord } from "../lib/propagate.ts";
 import { minimumOrbitPathDistanceKm, orbitGeometry } from "../lib/screen-geometry.ts";
 import type { OrbitGeometry, Vector3Km } from "../lib/screen-geometry.ts";
 
 /**
- * The path gate discards pairs, so an overestimate here is a silently missed
- * conjunction. These tests pin the solver against a dense brute-force
- * reference; the bound they assert is what lib/screen.ts budgets its gate
- * margin against.
+ * Exploratory fixed-ellipse solver only; NOT a production discard gate.
+ * A dense-grid minimum is an upper bound, so agreement with it does not
+ * certify the true minimum. Production gate regressions live in screen.test.ts.
  */
 
 const TWO_PI = Math.PI * 2;
@@ -46,38 +45,6 @@ function bruteForceMinimumKm(first: OrbitGeometry, second: OrbitGeometry): numbe
   return Math.sqrt(bestSquared);
 }
 
-// Deterministic LEO ensemble. These are not orbital data and are never shown to
-// anyone; they exist to sweep inclination, node and phasing combinations that
-// the eight-object fixture cannot cover on its own.
-let seed = 12_345;
-function nextRandom(): number {
-  seed = (seed * 1_103_515_245 + 12_345) & 0x7fffffff;
-  return seed / 0x7fffffff;
-}
-
-function syntheticLeoRecord(index: number): OmmRecord {
-  const semiMajorAxisKm = 6_378.137 + 500 + nextRandom() * 900;
-  const meanMotionRevDay =
-    (86_400 / TWO_PI) * Math.sqrt(398_600.4418 / semiMajorAxisKm ** 3);
-  return {
-    name: `SYNTHETIC ${index}`,
-    catalogNumber: String(900_000 + index),
-    internationalDesignator: "synthetic",
-    regime: "LEO",
-    epochUtc: "2026-09-12T00:00:00.000Z",
-    meanMotionRevDay,
-    eccentricity: nextRandom() * 0.02,
-    inclinationDeg: 20 + nextRandom() * 120,
-    rightAscensionAscendingNodeDeg: nextRandom() * 360,
-    argumentOfPericenterDeg: nextRandom() * 360,
-    meanAnomalyDeg: nextRandom() * 360,
-    elementSetNumber: 1,
-    bstar: 0,
-    meanMotionDot: 0,
-    meanMotionDdot: 0,
-  };
-}
-
 function worstOverestimateKm(geometries: OrbitGeometry[]): {
   worstKm: number;
   discardedBelow100Km: number;
@@ -97,7 +64,7 @@ function worstOverestimateKm(geometries: OrbitGeometry[]): {
   return { worstKm, discardedBelow100Km };
 }
 
-test("path distance never overestimates real orbits beyond the gate margin", () => {
+test("ellipse estimates agree with the sampled reference on archived real elements", () => {
   const records: TleRecord[] = [
     ...(satelliteFixture as TleRecord[]),
     ...(collisionFixture.satellites as TleRecord[]),
@@ -114,20 +81,7 @@ test("path distance never overestimates real orbits beyond the gate margin", () 
   const { worstKm, discardedBelow100Km } = worstOverestimateKm(records.map(orbitGeometry));
   assert.ok(
     worstKm < MAX_ALLOWED_OVERESTIMATE_KM,
-    `worst overestimate ${worstKm.toFixed(4)} km exceeds the gate margin`,
-  );
-  assert.equal(discardedBelow100Km, 0);
-});
-
-test("path distance holds across a LEO ensemble at the default screening scope", () => {
-  const geometries = Array.from({ length: 24 }, (_, index) =>
-    orbitGeometry(syntheticLeoRecord(index)),
-  );
-
-  const { worstKm, discardedBelow100Km } = worstOverestimateKm(geometries);
-  assert.ok(
-    worstKm < MAX_ALLOWED_OVERESTIMATE_KM,
-    `worst overestimate ${worstKm.toFixed(4)} km exceeds the gate margin`,
+    `worst difference from sampled reference ${worstKm.toFixed(4)} km`,
   );
   assert.equal(discardedBelow100Km, 0);
 });

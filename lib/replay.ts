@@ -5,7 +5,7 @@ import { screenPairAcrossTime } from "./screen-temporal.ts";
 export interface CollisionReplayFixture {
   source: string;
   scenarioSource: string;
-  documentedCollisionUtc: string;
+  referencePredictedTcaUtc: string;
   replayStartUtc: string;
   replayEndUtc: string;
   satellites: TleRecord[];
@@ -13,7 +13,7 @@ export interface CollisionReplayFixture {
 
 export interface CollisionValidation {
   computedTcaUtc: string;
-  documentedCollisionUtc: string;
+  referencePredictedTcaUtc: string;
   deltaSeconds: number;
   missDistanceKm: number;
   relativeVelocityKmS: number;
@@ -37,15 +37,18 @@ export function computeCollisionValidation(
       thresholdKm: 100,
       maxObjects: 2,
       coarseStepSeconds: 10,
+      // A narrow search bracket avoids rounding onto the reference by chance.
+      // The Date-based propagator still has millisecond, not sub-ms resolution.
+      refinementToleranceMs: 0.5,
     },
   );
   if (!result) throw new Error("Historical close approach was not reproduced");
 
   return {
     computedTcaUtc: result.tcaUtc,
-    documentedCollisionUtc: fixture.documentedCollisionUtc,
+    referencePredictedTcaUtc: fixture.referencePredictedTcaUtc,
     deltaSeconds:
-      (Date.parse(result.tcaUtc) - Date.parse(fixture.documentedCollisionUtc)) / 1_000,
+      (Date.parse(result.tcaUtc) - Date.parse(fixture.referencePredictedTcaUtc)) / 1_000,
     missDistanceKm: result.missDistanceKm,
     relativeVelocityKmS: result.relativeVelocityKmS,
   };

@@ -123,7 +123,16 @@ test("repeat encounters and exact window endpoints are retained", () => {
   const options = { startUtc: "2026-09-12T05:00:00Z", windowHours: 24, thresholdKm: 20_000, maxObjects: 2, coarseStepSeconds: 60, refinementToleranceMs: 10 };
   const report = screenSatelliteCatalog([iss, station], options);
   assert.ok(report.results.length > 2);
+  assert.ok(report.results.some((r) => r.tcaUtc === "2026-09-12T05:00:00.000Z"));
+  assert.ok(report.results.some((r) => r.tcaUtc === "2026-09-13T05:00:00.000Z"));
   for (const result of report.results) assert.ok(result.rangeSeries.some((s) => s.atUtc === result.tcaUtc));
+});
+
+test("more than 100 encounters are reported without silent truncation", () => {
+  const catalog = normalizeGpCatalog(regressionFixture.records).satellites;
+  const report = screenSatelliteCatalog(catalog, { startUtc: "2026-09-12T12:00:00Z", windowHours: 24, thresholdKm: 20_000, maxObjects: 6 });
+  assert.ok(report.results.length > 100);
+  assert.equal(new Set(report.results.map((r) => r.id)).size, report.results.length);
 });
 
 test("invalid screening settings fail rather than hang", () => {

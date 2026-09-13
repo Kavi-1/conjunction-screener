@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { verifySgp4Subset } from "../lib/verification.ts";
 
 import verificationFixture from "../fixtures/sgp4-verification.json" with {
   type: "json",
@@ -10,11 +11,12 @@ import {
   type TleRecord,
 } from "../lib/propagate.ts";
 
-// satellite.js uses the improved-mode Vallado implementation; the official
-// vectors include legacy-mode cases, so the cross-implementation tolerance is 10 m.
+// The app's millisecond Date timestamps truncate the fractional TLE epoch.
+// At orbital speed that produces several metres of difference in this subset.
+// Other official cases also require matching legacy/improved operation modes.
 const MAX_ALLOWED_POSITION_ERROR_KM = 0.01;
 
-test("propagation matches the official Celestrak SGP4 verification vectors", () => {
+test("propagation matches the declared three-case, nine-position Celestrak subset", () => {
   let maxPositionErrorKm = 0;
 
   for (const verificationCase of verificationFixture.cases) {
@@ -49,4 +51,8 @@ test("propagation matches the official Celestrak SGP4 verification vectors", () 
     maxPositionErrorKm < MAX_ALLOWED_POSITION_ERROR_KM,
     `maximum TEME position error ${maxPositionErrorKm.toFixed(9)} km`,
   );
+  const displayed = verifySgp4Subset(verificationFixture);
+  assert.equal(displayed.caseCount, 3);
+  assert.equal(displayed.sampleCount, 9);
+  assert.equal(displayed.maxPositionErrorKm, maxPositionErrorKm);
 });

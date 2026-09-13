@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import { ApproachDetail } from "@/components/approach-detail";
 import { ApproachTable, type ApproachTableRow } from "@/components/approach-table";
 import type { NeoApproach, NeoApproachPayload } from "@/lib/cneos";
+import { formatUtcTimestamp } from "@/lib/elements";
 
 function distanceLabel(distanceKm: number): string {
   return `${Math.round(distanceKm).toLocaleString("en-US")} km`;
@@ -38,27 +39,25 @@ export function AsteroidApproaches() {
   const rows: ApproachTableRow[] = (payload?.approaches ?? []).map((approach) => ({
     id: approach.id,
     primaryLabel: approach.name,
-    secondaryLabel: `Designation ${approach.designation} · orbit ${approach.orbitId}`,
+    secondaryLabel: `${approach.designation}, orbit ${approach.orbitId}`,
     tcaLabel: approach.tcaTdb,
     missDistanceLabel: distanceLabel(approach.missDistanceKm),
     relativeVelocityLabel: `${approach.relativeVelocityKmS.toFixed(2)} km/s`,
-    auxiliaryLabel: approach.diameterKm === null
-      ? "Diameter unknown"
-      : `${approach.diameterKm.toFixed(3)} km diameter`,
+    auxiliaryLabel:
+      approach.diameterKm === null ? "—" : `${approach.diameterKm.toFixed(3)} km`,
   }));
 
   return (
-    <section className="screen-workspace" aria-labelledby="asteroid-tab">
+    <section className="screen-workspace" aria-label="Asteroid close approaches">
       <div className="asteroid-heading">
-        <div>
-          <h2 id="asteroid-tab">Asteroids</h2>
-          <p>
-            Earth approaches published by NASA JPL CNEOS for the next 60 days,
-            limited to 0.05 au. These values are retrieved, not propagated here.
-          </p>
-        </div>
-        {payload && <span className="measure">{payload.approaches.length} approaches{payload.stale ? " · cached" : ""}</span>}
+        <p>Published by NASA JPL CNEOS, not computed here. Next 60 days, within 0.05 au of Earth’s center.</p>
+        {payload && (
+          <span className="measure">
+            {payload.approaches.length} approaches{payload.stale ? ", cached" : ""}
+          </span>
+        )}
       </div>
+      {payload && <p className="screen-state">Retrieved {formatUtcTimestamp(new Date(payload.fetchedAtUtc))}{payload.stale ? "; refresh unavailable, showing cached data" : ""}.</p>}
       {!payload && !error && <p className="screen-state">Loading NASA JPL approaches…</p>}
       {error && <p className="screen-error" role="alert">{error}</p>}
       {payload && rows.length === 0 && <p className="empty-results">NASA JPL reports no matching approaches.</p>}
@@ -72,15 +71,13 @@ export function AsteroidApproaches() {
         />
       )}
       {selected && (
-        <ApproachDetail
-          title={selected.name}
-          description="Published close-approach solution from the NASA JPL Small-Body Database."
-        >
+        <ApproachDetail label={selected.name}>
+          <h3 className="detail-heading">{selected.name}</h3>
           <dl className="asteroid-detail-grid">
             <div><dt>Nominal miss</dt><dd className="measure">{distanceLabel(selected.missDistanceKm)}</dd></div>
             <div><dt>3σ distance interval</dt><dd className="measure">{distanceLabel(selected.minimumDistanceKm)} – {distanceLabel(selected.maximumDistanceKm)}</dd></div>
-            <div><dt>Time uncertainty</dt><dd className="measure">{selected.timeUncertainty}</dd></div>
-            <div><dt>Diameter</dt><dd className="measure">{selected.diameterKm === null ? "Unknown" : `${selected.diameterKm.toFixed(3)} km${selected.diameterSigmaKm === null ? "" : ` ± ${selected.diameterSigmaKm.toFixed(3)} km`}`}</dd></div>
+            <div><dt>3σ time uncertainty (d_hh:mm or hh:mm)</dt><dd className="measure">{selected.timeUncertainty}</dd></div>
+            <div><dt>Diameter (±1σ)</dt><dd className="measure">{selected.diameterKm === null ? "Unknown" : `${selected.diameterKm.toFixed(3)} km${selected.diameterSigmaKm === null ? "" : ` ± ${selected.diameterSigmaKm.toFixed(3)} km`}`}</dd></div>
           </dl>
         </ApproachDetail>
       )}

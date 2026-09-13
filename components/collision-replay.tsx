@@ -4,22 +4,18 @@ import { useEffect, useMemo, useRef, useState } from "react";
 
 import { ReplayGlobe } from "@/components/replay-globe";
 import collisionFixture from "@/fixtures/iridium-cosmos-2009.json";
-import { formatUtcTimestamp } from "@/lib/elements";
-import { createSatellitePropagator, type TleRecord } from "@/lib/propagate";
-import {
-  computeCollisionValidation,
-  type CollisionReplayFixture,
-} from "@/lib/replay";
+import { formatElementAgeHours } from "@/lib/elements";
+import { createSatellitePropagator, elementEpochUtc, type TleRecord } from "@/lib/propagate";
+import type { CollisionReplayFixture, CollisionValidation } from "@/lib/replay";
 
 const fixture = collisionFixture as CollisionReplayFixture;
-const validation = computeCollisionValidation(fixture);
 const records = fixture.satellites as TleRecord[];
 const startMs = Date.parse(fixture.replayStartUtc);
 const endMs = Date.parse(fixture.replayEndUtc);
 const durationSeconds = (endMs - startMs) / 1_000;
 const PLAYBACK_RATE = 36;
 
-export function CollisionReplay() {
+export function CollisionReplay({ validation }: { validation: CollisionValidation }) {
   const [offsetSeconds, setOffsetSeconds] = useState(0);
   const [playing, setPlaying] = useState(false);
   const [completed, setCompleted] = useState(false);
@@ -98,19 +94,24 @@ export function CollisionReplay() {
         </div>
         <dl className="replay-readout">
           <div><dt>Separation now</dt><dd className="measure">{currentRangeKm?.toFixed(2) ?? "—"} km</dd></div>
-          <div><dt>Computed closest approach</dt><dd className="measure">{formatUtcTimestamp(new Date(validation.computedTcaUtc))}</dd></div>
+          <div><dt>Computed TCA (UTC)</dt><dd className="measure">{validation.computedTcaUtc}</dd></div>
+          <div><dt>SOCRATES-predicted TCA (UTC)</dt><dd className="measure">{validation.referencePredictedTcaUtc}</dd></div>
           <div><dt>Computed miss distance</dt><dd className="measure">{validation.missDistanceKm.toFixed(3)} km</dd></div>
           <div><dt>Relative velocity</dt><dd className="measure">{validation.relativeVelocityKmS.toFixed(3)} km/s</dd></div>
         </dl>
+        <p>This compares two predictions, not a measured impact timestamp. Public elements predict a nonzero separation even though the satellites collided.</p>
+        <p>Element ages at computed TCA: {records.map((record) => `${record.name}: ${formatElementAgeHours((Date.parse(validation.computedTcaUtc) - elementEpochUtc(record).getTime()) / 3_600_000)}`).join("; ")}.</p>
         {completed && (
           <div className="replay-verdict" aria-live="polite">
-            <p>The replay has passed the event.</p>
+            <p>Past the event.</p>
             <strong className="measure">
-              Computed TCA delta: {validation.deltaSeconds >= 0 ? "+" : ""}{validation.deltaSeconds.toFixed(3)} s
+              Difference from SOCRATES {validation.deltaSeconds >= 0 ? "+" : ""}
+              {validation.deltaSeconds.toFixed(3)} s
             </strong>
             <span>
-              The public elements match Celestrak’s documented SOCRATES time but
-              predict a 0.708 km miss, illustrating their uncertainty.
+              They collided. These elements put them{" "}
+              {validation.missDistanceKm.toFixed(3)} km apart. That gap is how far
+              off public element sets can be.
             </span>
           </div>
         )}

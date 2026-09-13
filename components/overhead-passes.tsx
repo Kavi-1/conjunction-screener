@@ -29,7 +29,9 @@ export function OverheadPasses() {
     records,
     status: catalogStatus,
     selectedCatalogNumber,
-    selectSatellite,
+    preview,
+    previewPass,
+    returnToLive,
   } = useCatalog();
   const workerRef = useRef<Worker | null>(null);
   const [passError, setPassError] = useState<string | null>(null);
@@ -47,6 +49,7 @@ export function OverheadPasses() {
   );
 
   const calculate = (location: ObserverLocation) => {
+    returnToLive();
     setObserver(location);
     setState("calculating");
     setCityError(null);
@@ -105,6 +108,7 @@ export function OverheadPasses() {
   };
 
   const closePasses = () => {
+    returnToLive();
     workerRef.current?.terminate();
     workerRef.current = null;
     setState("idle");
@@ -186,8 +190,9 @@ export function OverheadPasses() {
                   <button
                     className="pass-result"
                     type="button"
-                    aria-pressed={selectedCatalogNumber === pass.catalogNumber}
-                    onClick={() => selectSatellite(pass.catalogNumber)}
+                    aria-pressed={selectedCatalogNumber === pass.catalogNumber &&
+                      preview?.atUtc.getTime() === pass.maxElevationAtUtc.getTime()}
+                    onClick={() => observer && previewPass(pass, observer)}
                   >
                     <span className="pass-result-object">
                       <strong>{pass.objectName}</strong>

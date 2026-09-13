@@ -6,6 +6,44 @@
   padding-top: 1rem;
 }
 
+.pass-preview {
+  align-items: center;
+  border-bottom: 1px solid var(--line);
+  color: var(--signal);
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem 1rem;
+  justify-content: space-between;
+  margin-bottom: 0.8rem;
+  padding-bottom: 0.7rem;
+}
+
+.pass-preview p {
+  font-size: 0.85rem;
+  margin: 0;
+}
+
+.pass-preview small {
+  color: var(--muted);
+  display: block;
+  margin-top: 0.2rem;
+}
+
+.pass-preview button {
+  background: transparent;
+  border: 1px solid var(--line-strong);
+  color: var(--paper);
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.8rem;
+  padding: 0.55rem 0.7rem;
+}
+
+.pass-preview button:hover {
+  border-color: var(--signal);
+  color: var(--signal);
+}
+
 .object-inspector-head {
   align-items: baseline;
   display: flex;

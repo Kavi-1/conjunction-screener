@@ -79,11 +79,12 @@ function tooltipMarkup(point: object): string {
 }
 
 export function OrbitalGlobe() {
-  const { records, selectedCatalogNumber, selectSatellite } = useCatalog();
+  const { records, selectedCatalogNumber, selectSatellite, preview } = useCatalog();
   const landFeatures = useLandPolygons();
   const landFeaturesRef = useRef<LandFeature[]>([]);
   const trackSegmentsRef = useRef<GroundTrackPoint[][]>([]);
   const containerRef = useRef<HTMLDivElement>(null);
+  const viewportRef = useRef<HTMLDivElement>(null);
   const globeRef = useRef<GlobeInstance | null>(null);
   const positionsRef = useRef<SatellitePosition[]>([]);
   // three-globe diffs its data by object identity. Handing it freshly built
@@ -95,6 +96,7 @@ export function OrbitalGlobe() {
   const [positions, setPositions] = useState<SatellitePosition[]>([]);
   const [observedAtUtc, setObservedAtUtc] = useState<Date | null>(null);
   const [renderError, setRenderError] = useState<string | null>(null);
+  const [globeReady, setGlobeReady] = useState(false);
 
   // One geometry and one material per regime, shared by every mesh. Building
   // them per object would allocate hundreds of each on every tick.
@@ -110,7 +112,7 @@ export function OrbitalGlobe() {
 
   useEffect(() => {
     const updatePositions = () => {
-      const atUtc = new Date();
+      const atUtc = preview?.atUtc ?? new Date();
       const nextPositions = records.flatMap((record) => {
         const position = propagateSatelliteAtUtc(record, atUtc);
         return position ? [position] : [];
@@ -136,9 +138,10 @@ export function OrbitalGlobe() {
     };
 
     updatePositions();
+    if (preview) return;
     const intervalId = window.setInterval(updatePositions, 1_000);
     return () => window.clearInterval(intervalId);
-  }, [records]);
+  }, [records, preview]);
 
   // Before anything is clicked the panel falls back to the first object, so the
   // track has to resolve the same way or the globe and the panel disagree about
@@ -148,16 +151,21 @@ export function OrbitalGlobe() {
     selectedCatalogNumber ?? positions[0]?.catalogNumber ?? null;
   const [trackEpochMs, setTrackEpochMs] = useState(() => Date.now());
   useEffect(() => {
+    if (preview) return;
+    const timeoutId = window.setTimeout(() => setTrackEpochMs(Date.now()), 0);
     const intervalId = window.setInterval(() => setTrackEpochMs(Date.now()), 30_000);
-    return () => window.clearInterval(intervalId);
-  }, []);
+    return () => {
+      window.clearTimeout(timeoutId);
+      window.clearInterval(intervalId);
+    };
+  }, [preview]);
 
   const trackSegments = useMemo(() => {
     const record = records.find(
       (candidate) => candidate.catalogNumber === activeCatalogNumber,
     );
-    return record ? groundTrackSegments(record, new Date(trackEpochMs)) : [];
-  }, [records, activeCatalogNumber, trackEpochMs]);
+    return record ? groundTrackSegments(record, preview?.atUtc ?? new Date(trackEpochMs)) : [];
+  }, [records, activeCatalogNumber, trackEpochMs, preview]);
 
   // Rebuilt whenever the selection changes: replacing this accessor is what
   // makes three-globe recreate the meshes with the new highlight.
@@ -253,6 +261,7 @@ export function OrbitalGlobe() {
         globe.controls().enableDamping = true;
         globe.controls().dampingFactor = 0.08;
         globeRef.current = globe;
+        setGlobeReady(true);
 
         // The globe is square and fits whichever side of its box is shorter, so
         // the whole sphere stays in view without the page scrolling.
@@ -286,21 +295,26 @@ export function OrbitalGlobe() {
       const selected = positionsRef.current.find(
         (position) => position.catalogNumber === activeCatalogNumber,
       );
-      if (selected) {
+      const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+      globe.controls().autoRotate = !preview && !reduceMotion;
+      if (preview && window.matchMedia("(max-width: 899px)").matches) {
+        viewportRef.current?.scrollIntoView({ block: "start", behavior: reduceMotion ? "instant" : "smooth" });
+      }
+      if (selected && (selectedCatalogNumber || preview)) {
         const transitionMs = window.matchMedia("(prefers-reduced-motion: reduce)").matches
           ? 0
           : 650;
         globe.pointOfView(
           {
-            lat: selected.latDeg,
-            lng: selected.lngDeg,
-            altitude: globe.pointOfView().altitude,
+            lat: preview?.observer.latitudeDeg ?? selected.latDeg,
+            lng: preview?.observer.longitudeDeg ?? selected.lngDeg,
+            altitude: preview ? 2.25 : globe.pointOfView().altitude,
           },
           transitionMs,
         );
       }
     }
-  }, [activeCatalogNumber, buildObjectMesh]);
+  }, [activeCatalogNumber, selectedCatalogNumber, buildObjectMesh, preview, globeReady]);
 
   useEffect(() => {
     trackSegmentsRef.current = trackSegments;
@@ -314,7 +328,7 @@ export function OrbitalGlobe() {
 
   return (
     <div className="orbital-stage">
-      <div className="globe-viewport">
+      <div className="globe-viewport" ref={viewportRef}>
         <div className="globe-frame">
           <div
             className="globe-canvas"
@@ -343,11 +357,11 @@ export function OrbitalGlobe() {
               </li>
             ))}
           </ul>
-          <p className="drag-note">Drag to rotate. Select an object to see its path. Paths update every 30 seconds. Heights are not to scale.</p>
+          <p className="drag-note">Drag to rotate. Select an object to see its path. {preview ? "Positions are paused at the preview time." : "Paths update every 30 seconds."} Heights are not to scale.</p>
         </aside>
 
           <p className="epoch-clock measure" aria-live="off">
-            <span>UTC</span>
+            <span>{preview ? "Preview · UTC" : "UTC"}</span>
             {observedAtUtc ? formatUtcTimestamp(observedAtUtc) : "—"}
           </p>
         </div>

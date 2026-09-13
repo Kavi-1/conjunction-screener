@@ -1,5 +1,6 @@
 "use client";
 
+import { useCatalog } from "@/components/catalog-provider";
 import {
   formatElementAgeHours,
   formatUtcTimestamp,
@@ -18,6 +19,7 @@ export function ObjectDetail({
   selectedCatalogNumber,
   onSelect,
 }: ObjectDetailProps) {
+  const { preview, returnToLive } = useCatalog();
   const selected =
     positions.find(
       (position) => position.catalogNumber === selectedCatalogNumber,
@@ -30,6 +32,15 @@ export function ObjectDetail({
 
   return (
     <section className="object-inspector" aria-label="Tracked object details">
+      {preview && (
+        <div className="pass-preview">
+          <p role="status">
+            Preview · <time dateTime={preview.atUtc.toISOString()}>{formatUtcTimestamp(preview.atUtc)} UTC</time>
+            <small>Highest point of the pass · {preview.observer.label}</small>
+          </p>
+          <button type="button" onClick={returnToLive}>Back to live</button>
+        </div>
+      )}
       <div className="object-inspector-head">
         <div>
           <h2>{selected.name}</h2>
@@ -84,7 +95,7 @@ export function ObjectDetail({
       </dl>
 
       <p className="track-note">
-        <span aria-hidden="true" /> Predicted path for the next{" "}
+        <span aria-hidden="true" /> Predicted path {preview ? "from the preview time for" : "for the next"}{" "}
         {selected.orbitalPeriodMinutes.toFixed(0)} minutes.
       </p>
 

@@ -5,6 +5,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useState } 
 import fixture from "@/fixtures/satellites.json";
 import type { SatelliteCatalogPayload } from "@/lib/celestrak";
 import type { SatelliteRecord, TleRecord } from "@/lib/propagate";
+import type { ObserverLocation, SatellitePass } from "@/lib/passes";
 
 type CatalogStatus = "loading" | "live" | "fallback";
 
@@ -18,6 +19,9 @@ interface CatalogState {
 interface CatalogContextValue extends CatalogState {
   selectedCatalogNumber: string | null;
   selectSatellite: (catalogNumber: string) => void;
+  preview: { atUtc: Date; observer: ObserverLocation } | null;
+  previewPass: (pass: SatellitePass, observer: ObserverLocation) => void;
+  returnToLive: () => void;
 }
 
 const fixtureRecords = fixture as TleRecord[];
@@ -59,6 +63,7 @@ export function CatalogProvider({ children }: Readonly<{ children: React.ReactNo
     stale: false,
   });
   const [selectedCatalogNumber, setSelectedCatalogNumber] = useState<string | null>(null);
+  const [preview, setPreview] = useState<CatalogContextValue["preview"]>(null);
 
   useEffect(() => {
     let active = true;
@@ -88,10 +93,16 @@ export function CatalogProvider({ children }: Readonly<{ children: React.ReactNo
 
   const selectSatellite = useCallback((catalogNumber: string) => {
     setSelectedCatalogNumber(catalogNumber);
+    setPreview(null);
   }, []);
+  const previewPass = useCallback((pass: SatellitePass, observer: ObserverLocation) => {
+    setSelectedCatalogNumber(pass.catalogNumber);
+    setPreview({ atUtc: pass.maxElevationAtUtc, observer });
+  }, []);
+  const returnToLive = useCallback(() => setPreview(null), []);
   const value = useMemo(
-    () => ({ ...catalog, selectedCatalogNumber, selectSatellite }),
-    [catalog, selectedCatalogNumber, selectSatellite],
+    () => ({ ...catalog, selectedCatalogNumber, selectSatellite, preview, previewPass, returnToLive }),
+    [catalog, selectedCatalogNumber, selectSatellite, preview, previewPass, returnToLive],
   );
   return <CatalogContext value={value}>{children}</CatalogContext>;
 }

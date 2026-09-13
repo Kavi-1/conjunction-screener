@@ -40,6 +40,14 @@ export function OverheadPasses() {
   const [cityError, setCityError] = useState<string | null>(null);
   const [observer, setObserver] = useState<ObserverLocation | null>(null);
   const [passes, setPasses] = useState<SatellitePass[]>([]);
+  const [nowMs, setNowMs] = useState(() => Date.now());
+
+  useEffect(() => {
+    if (state !== "ready") return;
+    // Use wall-clock time even while the globe is previewing a future pass.
+    const intervalId = window.setInterval(() => setNowMs(Date.now()), 1_000);
+    return () => window.clearInterval(intervalId);
+  }, [state]);
 
   useEffect(
     () => () => {
@@ -60,6 +68,7 @@ export function OverheadPasses() {
     workerRef.current = worker;
     worker.onmessage = (event: MessageEvent<PassWorkerResponse>) => {
       if (workerRef.current !== worker) return;
+      setNowMs(Date.now());
       if (event.data.type === "complete") setPasses(event.data.passes);
       else setPassError(event.data.message);
       setState("ready");
@@ -202,9 +211,17 @@ export function OverheadPasses() {
                       </small>
                     </span>
                     <span className="pass-result-measures">
-                      <time dateTime={pass.startUtc.toISOString()}>
-                        {timeFormatter.format(pass.startUtc)}
-                      </time>
+                      {pass.startUtc.getTime() <= nowMs && nowMs < pass.endUtc.getTime() ? (
+                        <span className="pass-above-horizon">
+                          <span aria-hidden="true" />Above horizon now
+                        </span>
+                      ) : nowMs >= pass.endUtc.getTime() ? (
+                        <span className="pass-ended">Ended</span>
+                      ) : (
+                        <time dateTime={pass.startUtc.toISOString()}>
+                          {timeFormatter.format(pass.startUtc)}
+                        </time>
+                      )}
                       <small className="measure">
                         {pass.maxElevationDeg.toFixed(0)}° · {formatDuration(pass.durationSeconds)}
                         {(pass.clippedStart || pass.clippedEnd) ? " · partial" : ""}

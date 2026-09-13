@@ -1,37 +1,25 @@
-.replay-intro,
 .replay-workspace {
-  margin-inline: auto;
-  max-width: 1440px;
-  padding-inline: 5vw;
-}
-
-.replay-intro {
-  padding-bottom: 1rem;
-  padding-top: clamp(3rem, 7vw, 6rem);
-}
-
-.replay-intro h1 {
-  max-width: 11ch;
-}
-
-.replay-intro > p {
-  color: var(--muted);
-  line-height: 1.65;
-  margin: 1.5rem 0 0;
-  max-width: 38rem;
-}
-
-.replay-workspace {
+  align-items: stretch;
+  column-gap: clamp(1.5rem, 4vw, 3rem);
   display: grid;
+  flex: 1;
   grid-template-columns: minmax(0, 1.5fr) minmax(19rem, 0.75fr);
-  padding-bottom: 5rem;
+  margin-inline: auto;
+  max-width: var(--page-max);
+  min-height: 0;
+  padding-bottom: clamp(0.75rem, 2vh, 1.75rem);
+  padding-inline: var(--page-gutter);
+  width: 100%;
 }
 
 .replay-globe-frame {
   aspect-ratio: 1;
-  max-width: 850px;
+  height: 100%;
+  margin-inline: auto;
+  max-height: 100%;
+  max-width: 100%;
   position: relative;
-  width: 100%;
+  width: auto;
 }
 
 .replay-globe-frame::after {
@@ -82,7 +70,12 @@
 .replay-console {
   align-self: center;
   border-top: 1px solid var(--line-strong);
+  max-height: 100%;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
   padding-top: 1rem;
+  scrollbar-width: thin;
 }
 
 .replay-controls {
@@ -180,6 +173,7 @@
 
 @media (max-width: 850px) {
   .replay-workspace {
+    grid-template-rows: minmax(34svh, 1fr) minmax(0, auto);
     grid-template-columns: 1fr;
   }
 
@@ -193,5 +187,86 @@
 @media (prefers-reduced-motion: reduce) {
   .replay-globe-frame canvas {
     scroll-behavior: auto;
+  }
+}
+
+@media (max-width: 850px) {
+  .replay-console {
+    max-height: 46svh;
+  }
+}
+
+/* Same shrink chain the main globe needs: the rendered canvas must not hold its
+   parents open, or the frame keeps the size it was last given. */
+.app-shell .replay-workspace {
+  min-height: 0;
+}
+
+.app-shell .replay-globe-frame {
+  aspect-ratio: auto;
+  display: grid;
+  height: 100%;
+  min-height: 0;
+  min-width: 0;
+  overflow: hidden;
+  place-items: center;
+  width: 100%;
+}
+
+.app-shell .replay-globe-frame::after {
+  display: none;
+}
+
+.app-shell .replay-globe-frame .globe-canvas {
+  display: grid;
+  height: 100%;
+  min-height: 0;
+  min-width: 0;
+  overflow: hidden;
+  place-items: center;
+  width: 100%;
+}
+
+.app-shell .page-intro h1 {
+  font-size: clamp(2rem, 3.4vw, 3rem);
+}
+
+/* The frame is wider than the sphere now, so these markings centre on the globe
+   rather than stranding themselves at the frame's corners. */
+.app-shell .replay-clock {
+  bottom: 0;
+  left: 50%;
+  transform: translateX(-50%);
+}
+
+.app-shell .replay-key {
+  right: 0;
+  top: 0;
+}
+
+/* Phone: a grid row minimum cannot shrink, so the console was pushed over the
+   globe and through the footer. Flex lets the console take what is left. */
+@media (max-width: 899px) {
+  .app-shell .replay-workspace {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .app-shell .replay-globe-frame {
+    flex: 0 0 30svh;
+  }
+
+  .app-shell .replay-console {
+    align-self: stretch;
+    flex: 1 1 auto;
+    margin-top: 0.75rem;
+    max-height: none;
+    min-height: 0;
+    overflow-y: auto;
+  }
+
+  .app-shell .replay-key {
+    right: 0;
+    top: 0;
   }
 }

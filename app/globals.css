@@ -122,9 +122,33 @@ a:hover {
   color: var(--paper);
 }
 
-.site-header-status {
+.site-header-end {
+  align-items: center;
+  display: flex;
+  gap: 0.85rem;
   justify-self: end;
   padding-bottom: 0.95rem;
+}
+
+.github-link {
+  color: var(--muted);
+  display: grid;
+  flex: 0 0 auto;
+  place-items: center;
+}
+
+.github-link:hover {
+  color: var(--paper);
+}
+
+.github-link svg {
+  fill: none;
+  height: 1.15rem;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.8;
+  width: 1.15rem;
 }
 
 /* Shared intro block. Previously each view defined its own vertical rhythm and
@@ -491,7 +515,7 @@ h1 {
   }
 
   .wordmark,
-  .site-header-status {
+  .site-header-end {
     padding-bottom: 0.65rem;
   }
 
@@ -805,7 +829,7 @@ h1 {
     grid-row: 1;
   }
 
-  .site-header-status {
+  .site-header-end {
     grid-column: 2;
     grid-row: 1;
   }

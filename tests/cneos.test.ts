@@ -28,6 +28,13 @@ test("CAD parser accepts a documented zero-count response", () => {
   assert.deepEqual(normalizeCadResponse({ signature: { version: "1.5" }, count: 0 }), []);
 });
 
+test("invalid rows cannot become a misleading empty result", () => {
+  assert.throws(() => normalizeCadResponse({ ...response, data: [[]] }), /invalid or missing/);
+  assert.throws(() => normalizeCadResponse({ ...response, data: [] }), /invalid or missing/);
+  assert.throws(() => normalizeCadResponse({ ...response, signature: { version: "2.0" } }), /not supported/);
+  assert.equal(new URL(CNEOS_CAD_URL).searchParams.get("kind"), "a");
+});
+
 test("JPL loader uses the documented query and caches responses", async () => {
   let requests = 0;
   let requestedUrl = "";
@@ -44,4 +51,15 @@ test("JPL loader uses the documented query and caches responses", async () => {
   assert.equal(requestedUrl, CNEOS_CAD_URL);
   assert.equal(first, second);
   assert.equal(first.apiVersion, "1.5");
+});
+
+test("a parenthesised designation is unwrapped for display", () => {
+  const parsed = normalizeCadResponse({
+    signature: { version: "1.5" },
+    count: 1,
+    fields: ["des", "orbit_id", "cd", "dist", "dist_min", "dist_max", "v_rel", "t_sigma_f", "fullname"],
+    data: [["2026 RL10", "2", "2026-Sep-12 22:52", "0.006098", "0.006090", "0.006107", "2.714", "00:05", "       (2026 RL10)"]],
+  });
+
+  assert.equal(parsed[0]?.name, "2026 RL10");
 });

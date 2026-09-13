@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
 
 import { ApproachDetail } from "@/components/approach-detail";
 import { ApproachTable, type ApproachTableRow } from "@/components/approach-table";
@@ -10,11 +10,23 @@ import type { ScreenWorkerRequest, ScreenWorkerResponse } from "@/lib/screen-mes
 import type { ConjunctionResult, ScreeningProgress, ScreeningReport } from "@/lib/screen";
 import { formatElementAgeHours, formatUtcTimestamp, isStaleElementAge } from "@/lib/elements";
 
+const WIDE_SCREEN_QUERY = "(min-width: 900px)";
+
+function subscribeToWideScreen(onChange: () => void): () => void {
+  const query = window.matchMedia(WIDE_SCREEN_QUERY);
+  query.addEventListener("change", onChange);
+  return () => query.removeEventListener("change", onChange);
+}
+
+function readWideScreen(): boolean {
+  return window.matchMedia(WIDE_SCREEN_QUERY).matches;
+}
+
 const STAGE_LABELS: Record<ScreeningProgress["stage"], string> = {
-  prepare: "Preparing orbital geometry",
+  prepare: "Sampling SGP4 trajectories",
   apsis: "Testing radial overlap",
-  path: "Comparing orbit paths",
-  propagate: "Propagating candidate pairs",
+  path: "Comparing swept path bounds",
+  propagate: "Finding and refining encounters",
 };
 
 export function SatelliteScreen() {
@@ -23,6 +35,16 @@ export function SatelliteScreen() {
   const [windowHours, setWindowHours] = useState(24);
   const [thresholdKm, setThresholdKm] = useState(10);
   const [maxObjects, setMaxObjects] = useState(300);
+  // Open on a wide screen, folded on a phone, where the controls would
+  // otherwise fill the view before a single result appeared. Once the reader
+  // opens or closes it themselves, their choice sticks.
+  const wideScreen = useSyncExternalStore(
+    subscribeToWideScreen,
+    readWideScreen,
+    () => true,
+  );
+  const [toggledOpen, setToggledOpen] = useState<boolean | null>(null);
+  const settingsOpen = toggledOpen ?? wideScreen;
   const [progress, setProgress] = useState<ScreeningProgress | null>(null);
   const [report, setReport] = useState<ScreeningReport | null>(null);
   const [selected, setSelected] = useState<ConjunctionResult | null>(null);
@@ -79,7 +101,7 @@ export function SatelliteScreen() {
 
   useEffect(() => {
     let active = true;
-    void fetch("/api/tle?group=active", { headers: { Accept: "application/json" } })
+    const refresh = (initial = false) => { void fetch("/api/tle?group=active", { headers: { Accept: "application/json" } })
       .then(async (response) => {
         if (!response.ok) {
           const body = await response.json().catch(() => null) as { error?: unknown } | null;
@@ -98,16 +120,19 @@ export function SatelliteScreen() {
         }
         if (active) {
           setCatalog(payload);
-          runScreen(payload, { windowHours: 24, thresholdKm: 10, maxObjects: 300 });
+          if (initial) runScreen(payload, { windowHours: 24, thresholdKm: 10, maxObjects: 300 });
         }
       })
       .catch((reason: unknown) => {
         if (!active) return;
         setError(reason instanceof Error ? reason.message : "Active catalog unavailable");
         setStatus("error");
-      });
+      }); };
+    refresh(true);
+    const intervalId = window.setInterval(refresh, 2 * 60 * 60 * 1_000);
     return () => {
       active = false;
+      window.clearInterval(intervalId);
       workerRef.current?.terminate();
     };
   }, [runScreen]);
@@ -124,22 +149,25 @@ export function SatelliteScreen() {
       tcaLabel: formatUtcTimestamp(new Date(result.tcaUtc)),
       missDistanceLabel: `${result.missDistanceKm.toFixed(2)} km`,
       relativeVelocityLabel: `${result.relativeVelocityKmS.toFixed(2)} km/s`,
-      auxiliaryLabel: `${formatElementAgeHours(result.oldestElementAgeHours)}${stale ? " · stale" : ""}`,
+      auxiliaryLabel: `${formatElementAgeHours(result.oldestElementAgeHours)}${stale ? ", stale" : ""}`,
       auxiliaryAlert: stale,
     };
   });
 
   return (
-    <section className="screen-workspace" aria-labelledby="satellite-tab">
-      <div className="screen-controls">
-        <div>
-          <h2 id="satellite-tab">Satellites</h2>
-          <p>
-            Close approaches computed locally from current Celestrak elements. The
-            worker screens the freshest LEO objects without blocking this page.
-            {catalog?.fallbackFor === "active" && " Celestrak throttled the active catalog, so this run uses the smaller visual catalog."}
-          </p>
-        </div>
+    <section className="screen-workspace" aria-label="Satellite close approaches">
+      <details
+        className="screen-controls"
+        open={settingsOpen}
+        onToggle={(event) => setToggledOpen(event.currentTarget.open)}
+      >
+        <summary>
+          <span>Screening settings</span>
+          <span className="measure">
+            {windowHours} h, {thresholdKm} km, {maxObjects} objects
+          </span>
+        </summary>
+        <div className="screen-fields">
         <label>
           Window <output className="measure">{windowHours} h</output>
           <input type="range" min="6" max="48" step="6" value={windowHours} onChange={(event) => setWindowHours(Number(event.target.value))} />
@@ -155,7 +183,8 @@ export function SatelliteScreen() {
         <button type="button" disabled={!catalog || status === "screening"} onClick={() => catalog && runScreen(catalog, { windowHours, thresholdKm, maxObjects })}>
           {status === "screening" ? "Screening…" : "Run screening"}
         </button>
-      </div>
+        </div>
+      </details>
 
       {status === "loading" && <p className="screen-state">Loading the active catalog…</p>}
       {progress && (
@@ -165,17 +194,27 @@ export function SatelliteScreen() {
         </div>
       )}
       {error && <p className="screen-error" role="alert">{error}</p>}
+      <p className="screen-state">
+        Educational screening of the freshest LEO sample, not the full catalog.
+        SGP4 predicts separation, not collision probability. Short encounters can
+        still be missed by time sampling; public elements have no position uncertainty here.
+      </p>
+      {catalog?.offlineFixture && <p className="screen-error" role="status">Live catalog unavailable. Using eight archived fixture objects, not an active-catalog search. The 2009 replay is also available offline.</p>}
+      {catalog?.stale && !catalog.offlineFixture && <p className="screen-state">Using a cached catalog; upstream freshness could not be confirmed. Check element ages.</p>}
+      {catalog?.fallbackFor && <p className="screen-state">Active catalog unavailable; screening the smaller visual catalog.</p>}
+      {!!catalog?.discardedRecords && <p className="screen-state">Excluded {catalog.discardedRecords} invalid or duplicate source records.</p>}
 
       {report && (
         <>
           <dl className="gate-readout">
-            <div><dt>{catalog?.fallbackFor === "active" ? "Visual fallback" : "Active catalog"}</dt><dd className="measure">{report.stats.catalogObjects}</dd></div>
-            <div><dt>Freshest LEO sample</dt><dd className="measure">{report.stats.screenedObjects} / {report.stats.eligibleLeoObjects}</dd></div>
+            <div><dt>{catalog?.fallbackFor === "active" ? "Catalog, visual set" : "Catalog objects"}</dt><dd className="measure">{report.stats.catalogObjects}</dd></div>
+            <div><dt>LEO screened</dt><dd className="measure">{report.stats.screenedObjects} / {report.stats.eligibleLeoObjects}</dd></div>
             <div><dt>All pairs</dt><dd className="measure">{report.stats.initialPairs.toLocaleString()}</dd></div>
-            <div><dt>After apsis gate</dt><dd className="measure">{report.stats.afterApsisPairs.toLocaleString()}</dd></div>
+            <div><dt>After radial gate</dt><dd className="measure">{report.stats.afterApsisPairs.toLocaleString()}</dd></div>
             <div><dt>After path gate</dt><dd className="measure">{report.stats.afterPathPairs.toLocaleString()}</dd></div>
-            <div><dt>Worker time</dt><dd className="measure">{(report.stats.elapsedMs / 1_000).toFixed(1)} s</dd></div>
+            <div><dt>Elapsed</dt><dd className="measure">{(report.stats.elapsedMs / 1_000).toFixed(1)} s</dd></div>
           </dl>
+          <p className="screen-state">{report.results.length} encounters reported; repeat encounters included. Window starts {formatUtcTimestamp(new Date(report.options.startUtc))}. Sampling every {report.options.coarseStepSeconds} s.</p>
           {report.results.length > 0 ? (
             <ApproachTable
               rows={tableRows}
@@ -188,10 +227,7 @@ export function SatelliteScreen() {
             <p className="empty-results">No approaches crossed this threshold in the screened sample.</p>
           )}
           {selected && (
-            <ApproachDetail
-              title="Pair geometry"
-              description="Computed in this browser from public orbital elements."
-            >
+            <ApproachDetail label="Selected pair">
               <RangePlot result={selected} />
             </ApproachDetail>
           )}

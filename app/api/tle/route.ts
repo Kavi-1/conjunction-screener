@@ -1,5 +1,6 @@
 import { unstable_cache } from "next/cache";
 import { NextResponse } from "next/server";
+import { offlineCatalog } from "@/lib/catalog-fallback";
 
 import {
   CATALOG_CACHE_SECONDS,
@@ -19,7 +20,7 @@ const loadCachedVisualCatalog = unstable_cache(
 );
 const loadCachedActiveCatalog = unstable_cache(
   () => loadCatalogWithFallback("active", {
-    loadVisual: loadVisualFromCelestrak,
+    loadVisual: loadCachedVisualCatalog,
     loadActive: loadActiveFromCelestrak,
   }),
   ["celestrak-active-catalog-v2"],
@@ -53,9 +54,9 @@ export async function GET(request: Request) {
     });
   } catch {
     return NextResponse.json(
-      { error: "Celestrak and the reduced visual fallback are temporarily unavailable." },
+      offlineCatalog(group),
       {
-        status: 502,
+        status: 200,
         headers: { "Cache-Control": "no-store", "Retry-After": "600" },
       },
     );

@@ -1,10 +1,10 @@
 export const CNEOS_CAD_URL =
-  "https://ssd-api.jpl.nasa.gov/cad.api?date-min=now&date-max=%2B60&dist-max=0.05&body=Earth&sort=date&diameter=true&fullname=true";
+  "https://ssd-api.jpl.nasa.gov/cad.api?date-min=now&date-max=%2B60&dist-max=0.05&body=Earth&kind=a&sort=date&diameter=true&fullname=true";
 export const NEO_CACHE_SECONDS = 21_600;
 
 const ASTRONOMICAL_UNIT_KM = 149_597_870.7;
 const USER_AGENT =
-  "Miss-Distance/0.1 (educational close-approach visualization)";
+  "Conjunction-Screener/0.1 (educational close-approach visualization)";
 
 export interface NeoApproach {
   id: string;
@@ -35,7 +35,8 @@ interface LoaderOptions {
 }
 
 function numeric(value: unknown): number | null {
-  if (value === null || value === undefined || value === "") return null;
+  if (typeof value !== "string" && typeof value !== "number") return null;
+  if (typeof value === "string" && !value.trim()) return null;
   const parsed = typeof value === "number" ? value : Number(value);
   return Number.isFinite(parsed) ? parsed : null;
 }
@@ -66,7 +67,7 @@ export function normalizeCadResponse(value: unknown): NeoApproach[] {
   const fieldIndexes = new Map(
     response.fields.map((field, index) => [String(field), index]),
   );
-  return response.data.flatMap((candidate) => {
+  const approaches = response.data.flatMap((candidate) => {
     if (!Array.isArray(candidate)) return [];
     const designation = String(valueAt(candidate, fieldIndexes, "des") ?? "").trim();
     const orbitId = String(valueAt(candidate, fieldIndexes, "orbit_id") ?? "").trim();
@@ -82,18 +83,25 @@ export function normalizeCadResponse(value: unknown): NeoApproach[] {
       distanceAu === null ||
       minimumDistanceAu === null ||
       maximumDistanceAu === null ||
-      relativeVelocityKmS === null
+      relativeVelocityKmS === null || relativeVelocityKmS < 0 ||
+      minimumDistanceAu < 0 || distanceAu < minimumDistanceAu || maximumDistanceAu < distanceAu
     ) {
       return [];
     }
 
+    // JPL wraps the designation of an unnamed body in parentheses, e.g.
+    // "       (2026 RL10)". Named bodies come through as "433 Eros (A898 PA)".
     const name = String(
       valueAt(candidate, fieldIndexes, "fullname") ?? designation,
-    ).trim();
+    )
+      .trim()
+      .replace(/^\((.+)\)$/, "$1")
+      .trim();
     const diameterKm = numeric(valueAt(candidate, fieldIndexes, "diameter"));
     const diameterSigmaKm = numeric(
       valueAt(candidate, fieldIndexes, "diameter_sigma"),
     );
+    if ((diameterKm !== null && diameterKm < 0) || (diameterSigmaKm !== null && diameterSigmaKm < 0)) return [];
     return [{
       id: `${designation}-${orbitId}-${tcaTdb}`,
       designation,
@@ -111,6 +119,10 @@ export function normalizeCadResponse(value: unknown): NeoApproach[] {
       diameterSigmaKm,
     }];
   });
+  if (approaches.length !== response.data.length || numeric(response.count) !== approaches.length) {
+    throw new Error("JPL response contains invalid or missing approach records");
+  }
+  return approaches;
 }
 
 export function createCneosLoader({
@@ -132,6 +144,7 @@ export function createCneosLoader({
         try {
           const response = await fetcher(CNEOS_CAD_URL, {
             cache: "no-store",
+            signal: AbortSignal.timeout(10_000),
             headers: { Accept: "application/json", "User-Agent": USER_AGENT },
           });
           if (!response.ok) throw new Error(`JPL returned HTTP ${response.status}`);
@@ -145,7 +158,11 @@ export function createCneosLoader({
           memoryCache = { payload, cachedAtMs: requestedAtMs };
           return payload;
         } catch (error) {
-          if (memoryCache) return { ...memoryCache.payload, stale: true };
+          if (memoryCache) {
+            const payload = { ...memoryCache.payload, stale: true };
+            memoryCache = { payload, cachedAtMs: requestedAtMs };
+            return payload;
+          }
           throw error;
         }
       })();

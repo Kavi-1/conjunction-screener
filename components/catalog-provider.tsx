@@ -18,9 +18,12 @@ interface CatalogContextValue {
 const fixtureRecords = fixture as TleRecord[];
 const CatalogContext = createContext<CatalogContextValue | null>(null);
 let catalogRequest: Promise<SatelliteCatalogPayload> | null = null;
+let requestedAtMs = 0;
+const REFRESH_MS = 2 * 60 * 60 * 1_000;
 
 function requestCatalog(): Promise<SatelliteCatalogPayload> {
-  if (!catalogRequest) {
+  if (!catalogRequest || Date.now() - requestedAtMs >= REFRESH_MS) {
+    requestedAtMs = Date.now();
     catalogRequest = fetch("/api/tle", {
       headers: { Accept: "application/json" },
     }).then(async (response) => {
@@ -53,24 +56,27 @@ export function CatalogProvider({ children }: Readonly<{ children: React.ReactNo
 
   useEffect(() => {
     let active = true;
-    void requestCatalog()
+    const refresh = () => { void requestCatalog()
       .then((payload) => {
         if (!active || payload.satellites.length === 0) return;
         setCatalog({
           records: payload.satellites,
-          status: "live",
+          status: payload.offlineFixture ? "fallback" : "live",
           fetchedAtUtc: payload.fetchedAtUtc,
           stale: payload.stale,
         });
       })
       .catch(() => {
         if (active) {
-          setCatalog((current) => ({ ...current, status: "fallback" }));
+          setCatalog((current) => ({ ...current, stale: true, status: current.status === "live" ? "live" : "fallback" }));
         }
-      });
+      }); };
+    refresh();
+    const intervalId = window.setInterval(refresh, REFRESH_MS);
 
     return () => {
       active = false;
+      window.clearInterval(intervalId);
     };
   }, []);
 

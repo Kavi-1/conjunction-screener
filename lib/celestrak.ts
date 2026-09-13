@@ -1,4 +1,4 @@
-import type { OmmRecord, OrbitRegime } from "@/lib/propagate";
+import type { OmmRecord, OrbitRegime, SatelliteRecord } from "./propagate.ts";
 
 export type CatalogGroup = "visual" | "active";
 
@@ -7,18 +7,21 @@ export const CELESTRAK_BASE_URL =
 export const CATALOG_CACHE_SECONDS = 7_200;
 
 const USER_AGENT =
-  "Miss-Distance/0.1 (educational orbital conjunction visualization)";
+  "Conjunction-Screener/0.1 (educational orbital conjunction visualization)";
 const EARTH_GRAVITATIONAL_PARAMETER_KM3_S2 = 398_600.4418;
 const EARTH_RADIUS_KM = 6_371;
 
 export interface SatelliteCatalogPayload {
   source: "celestrak";
   group: CatalogGroup;
-  fetchedAtUtc: string;
+  fetchedAtUtc: string | null;
   stale: boolean;
   discardedRecords: number;
-  satellites: OmmRecord[];
+  satellites: SatelliteRecord[];
+  offlineFixture?: boolean;
   fallbackFor?: CatalogGroup;
+  /** Upstream reported unchanged data for this IP; our copy may still be older. */
+  unchangedUpstream?: boolean;
 }
 
 interface CatalogLoaders {
@@ -36,6 +39,17 @@ export function celestrakCatalogUrl(group: CatalogGroup): string {
   return `${CELESTRAK_BASE_URL}?GROUP=${group.toUpperCase()}&FORMAT=JSON`;
 }
 
+/**
+ * Celestrak answers a repeat request for unchanged data with HTTP 403 and a
+ * plain-text body naming the last successful download, not with an error page.
+ * It means "the copy you already have is current", so a cached catalog should
+ * be served rather than surfaced as an outage. The status alone is ambiguous —
+ * a genuine block is also a 403 — so the body is what distinguishes them.
+ */
+export function isUnchangedDataResponse(status: number, body: string): boolean {
+  return status === 403 && /has not updated since your last successful/i.test(body);
+}
+
 export async function loadCatalogWithFallback(
   group: CatalogGroup,
   loaders: CatalogLoaders,
@@ -51,6 +65,10 @@ export async function loadCatalogWithFallback(
 }
 
 function finiteNumber(value: unknown): number | null {
+  // Number(null) and Number("") are both 0, so a missing element would have
+  // been accepted as a real zero eccentricity or inclination.
+  if (typeof value !== "number" && typeof value !== "string") return null;
+  if (typeof value === "string" && !value.trim()) return null;
   const parsed = typeof value === "number" ? value : Number(value);
   return Number.isFinite(parsed) ? parsed : null;
 }
@@ -102,8 +120,6 @@ export function normalizeGpRecord(value: unknown): OmmRecord | null {
     : null;
 
   if (
-    !name ||
-    !internationalDesignator ||
     !catalogNumber ||
     !/^\d{1,9}$/.test(catalogNumber) ||
     !epochUtc ||
@@ -114,10 +130,15 @@ export function normalizeGpRecord(value: unknown): OmmRecord | null {
     eccentricity < 0 ||
     eccentricity >= 1 ||
     inclinationDeg === null ||
+    inclinationDeg < 0 || inclinationDeg > 180 ||
     rightAscensionAscendingNodeDeg === null ||
+    rightAscensionAscendingNodeDeg < 0 || rightAscensionAscendingNodeDeg >= 360 ||
     argumentOfPericenterDeg === null ||
+    argumentOfPericenterDeg < 0 || argumentOfPericenterDeg >= 360 ||
     meanAnomalyDeg === null ||
+    meanAnomalyDeg < 0 || meanAnomalyDeg >= 360 ||
     elementSetNumber === null ||
+    !Number.isInteger(elementSetNumber) || elementSetNumber < 0 ||
     bstar === null ||
     meanMotionDot === null ||
     meanMotionDdot === null
@@ -126,9 +147,9 @@ export function normalizeGpRecord(value: unknown): OmmRecord | null {
   }
 
   return {
-    name,
+    name: name ?? `NORAD ${catalogNumber}`,
     catalogNumber,
-    internationalDesignator,
+    internationalDesignator: internationalDesignator ?? "Not provided",
     regime: classifyOrbitRegime(meanMotionRevDay, eccentricity),
     epochUtc: epochUtc.toISOString(),
     meanMotionRevDay,
@@ -150,9 +171,12 @@ export function normalizeGpCatalog(value: unknown): {
 } {
   if (!Array.isArray(value)) throw new Error("Celestrak response is not an array");
 
+  const seen = new Set<string>();
   const satellites = value.flatMap((record) => {
     const normalized = normalizeGpRecord(record);
-    return normalized ? [normalized] : [];
+    if (!normalized || seen.has(normalized.catalogNumber)) return [];
+    seen.add(normalized.catalogNumber);
+    return [normalized];
   });
 
   if (satellites.length === 0) {
@@ -171,9 +195,12 @@ export function createCelestrakLoader({
     | { payload: SatelliteCatalogPayload; cachedAtMs: number }
     | undefined;
   let inFlight: Promise<SatelliteCatalogPayload> | undefined;
+  let lastError: unknown;
+  let retryAtMs = 0;
 
   return async function loadCatalog(): Promise<SatelliteCatalogPayload> {
     const requestedAtMs = now();
+    if (!memoryCache && requestedAtMs < retryAtMs) throw lastError;
     if (
       memoryCache &&
       requestedAtMs - memoryCache.cachedAtMs < CATALOG_CACHE_SECONDS * 1_000
@@ -186,6 +213,7 @@ export function createCelestrakLoader({
         try {
           const response = await fetcher(celestrakCatalogUrl(group), {
             cache: "no-store",
+            signal: AbortSignal.timeout(10_000),
             headers: {
               Accept: "application/json",
               "User-Agent": USER_AGENT,
@@ -193,6 +221,17 @@ export function createCelestrakLoader({
           });
 
           if (!response.ok) {
+            const body = await response.text().catch(() => "");
+            if (isUnchangedDataResponse(response.status, body) && memoryCache) {
+              // Upstream asked us to stop re-requesting until it publishes
+              // again, so restart the cache clock instead of retrying on every
+              // call for the rest of the window.
+              // The download belongs to an IP, not necessarily this instance.
+              // Never claim that an older local copy is the current version.
+              const payload = { ...memoryCache.payload, stale: true, unchangedUpstream: true };
+              memoryCache = { payload, cachedAtMs: requestedAtMs };
+              return payload;
+            }
             throw new Error(`Celestrak returned HTTP ${response.status}`);
           }
 
@@ -207,7 +246,13 @@ export function createCelestrakLoader({
           memoryCache = { payload, cachedAtMs: requestedAtMs };
           return payload;
         } catch (error) {
-          if (memoryCache) return { ...memoryCache.payload, stale: true };
+          lastError = error;
+          retryAtMs = requestedAtMs + CATALOG_CACHE_SECONDS * 1_000;
+          if (memoryCache) {
+            const payload = { ...memoryCache.payload, stale: true };
+            memoryCache = { payload, cachedAtMs: requestedAtMs };
+            return payload;
+          }
           throw error;
         }
       })();
